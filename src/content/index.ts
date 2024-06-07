@@ -1,4 +1,4 @@
-import { getAllTables, createRole, createRoleWithPrivileges, getBusinessUnits } from "../lib/dataverse";
+import { getRoles, getAllTables, createRoleWithPrivileges, getBusinessUnits } from "../lib/dataverse";
 import { TablePrivileges } from "../model/TablePrivileges";
 
 console.log('[content] loaded ')
@@ -43,8 +43,15 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
                 const result = await getBusinessUnits();
                 sendResponse(result);
             })();
-            
-            return true;	
+
+            return true;
+        case 'GET_ROLES':
+            (async () => {
+                let buId = message.buId;
+                const result = await getRoles(buId);
+                sendResponse(result);
+            })();
+            return true;
     }
 }
 

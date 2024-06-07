@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BusinessUnit } from "../model/BusinessUnit";
+import { Role } from "../model/Role";
 
 export interface ISaveRoleModalProps {
     businessUnits: BusinessUnit[];
@@ -11,12 +12,34 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
     const [roleName, setRoleName] = useState<string>("")
     const [businessUnit, setBusinessUnit] = useState<string>("-1")
     const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([])
+    const [roles, setRoles] = useState<Role[]>([])
+
+    const [creatingRole, setCreatingRole] = useState<boolean>(true)
+
+    const [selectedRole, setSelectedRole] = useState<Role | null>(null)
+
+    const getRoles = async (buId: string) => {
+        let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        let tabId = tabs[0].id || 0;
+
+        let message = {
+            action: 'GET_ROLES',
+            buId: buId
+        };
+
+        let result = await chrome.tabs.sendMessage(tabId, message);
+
+        setRoles(result);
+    }
 
     useEffect(() => {
         if (props.businessUnits.length === 0) return
 
         setBusinessUnit(props.businessUnits[0]?.id)
         setBusinessUnits(props.businessUnits)
+
+        let buId = props.businessUnits[0]?.id
+        getRoles(buId)
     }, [props.businessUnits])
 
     const saveRole = () => {
@@ -28,7 +51,7 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
             className="p-2 fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center"
         >
             <div
-                className="bg-white p-4 rounded-lg w-full"
+                className="bg-white p-4 rounded-lg w-full flex flex-col space-y-2"
             >
                 <div
                     className="flex justify-between items-center"
@@ -59,61 +82,168 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
                     </div>
                 </div>
                 <div
-                    className="flex flex-col space-y-4"
+                    className="flex flex-col space-y-2"
                 >
-                    <div
-                        className="flex flex-col space-y-2"
+                    <label
+                        htmlFor="role"
+                        className="font-bold"
                     >
-                        <label
-                            htmlFor="role"
-                            className="font-bold"
-                        >
-                            Role Name
-                        </label>
+                        Action
+                    </label>
+                    <div
+                        className="flex space-x-2"
+                    >
+
                         <input
-                            onChange={(e) => setRoleName(e.target.value)}
-                            type="text"
-                            id="role"
-                            className="border border-gray-200 p-2 rounded-md"
-                            value={roleName}
+                            onChange={() => setCreatingRole(true)}
+                            type="radio"
+                            id="create"
+                            name="action"
+                            value="create"
+                            checked={creatingRole}
                         />
-                    </div>
-                    <div
-                        className="flex flex-col space-y-2"
-                    >
                         <label
-                            htmlFor="role"
-                            className="font-bold"
+                            onClick={() => setCreatingRole(true)}
+
+                            htmlFor="create"
+                            className="ml-2"
                         >
-                            Bussiness Unit
+                            Create New
                         </label>
-                        <select
-                            className="border border-gray-200 p-2 rounded-md"
-                            onChange={(e) => setBusinessUnit(e.target.value)}
+
+
+                        <input
+                            onChange={() => setCreatingRole(false)}
+                            type="radio"
+                            id="update"
+                            name="action"
+                            value="update"
+                            checked={!creatingRole}
+                        />
+                        <label
+                            onClick={() => setCreatingRole(false)}
+                            htmlFor="update"
+                            className="ml-2"
                         >
-                            {
-                                businessUnits.map(bu => {
-                                    return <option key={bu.id} value={bu.id}>{bu.name}</option>
-                                })
-                            }
-                        </select>                 
+                            Update Existing
+                        </label>
                     </div>
-                    <div
-                        className="flex justify-end space-x-2"
+                </div>
+                {
+                    creatingRole &&
+                    <>
+                        <div
+                            className="flex flex-col space-y-2"
+                        >
+                            <label
+                                htmlFor="role"
+                                className="font-bold"
+                            >
+                                Role Name
+                            </label>
+                            <input
+                                onChange={(e) => setRoleName(e.target.value)}
+                                type="text"
+                                id="role"
+                                className="border border-gray-200 p-2 rounded-md"
+                                value={roleName}
+                            />
+                        </div>
+                        <div
+                            className="flex flex-col space-y-2"
+                        >
+                            <label
+                                htmlFor="role"
+                                className="font-bold"
+                            >
+                                Bussiness Unit
+                            </label>
+                            <select
+                                className="border border-gray-200 p-2 rounded-md"
+                                onChange={(e) => setBusinessUnit(e.target.value)}
+                            >
+                                {
+                                    businessUnits.map(bu => {
+                                        return <option key={bu.id} value={bu.id}>{bu.name}</option>
+                                    })
+                                }
+                            </select>
+                        </div>
+                    </>
+                }
+
+                {
+                    !creatingRole &&
+                    <>
+                        <div
+                            className="flex flex-col space-y-2"
+                        >
+                            <label
+                                htmlFor="role"
+                                className="font-bold"
+                            >
+                                Bussiness Unit
+                            </label>
+                            <select
+                                className="border border-gray-200 p-2 rounded-md"
+                                onChange={async (e) => {
+                                    let buId = e.target.value
+                                    setBusinessUnit(buId);
+
+                                    getRoles(buId)
+                                }}
+                            >
+                                {
+                                    businessUnits.map(bu => {
+                                        return <option key={bu.id} value={bu.id}>{bu.name}</option>
+                                    })
+                                }
+                            </select>
+                        </div>
+                        <div
+                            className="flex flex-col space-y-2"
+                        >
+                            <label
+                                htmlFor="role"
+                                className="font-bold"
+                            >
+                                Role Name
+                            </label>
+                            <select
+                                className="border border-gray-200 p-2 rounded-md"
+                                onChange={(e) => {
+                                    let roleId = e.target.value
+                                    let role = roles.find(r => r.id === roleId) || null
+                                    setSelectedRole(role)
+                                }}
+                            >
+                                <option disabled value="-1">Select Role</option>
+                                {
+                                    roles && roles.map(role => {
+                                        return <option key={role.id} value={role.id}>{role.name}</option>
+                                    })
+                                }
+                            </select>
+                        </div>
+                    </>
+
+                }
+
+                <div
+                    className="flex justify-end space-x-2"
+                >
+                    <button
+                        onClick={saveRole}
+                        className="w-14 bg-blue-500 text-white p-2 rounded-md"
                     >
-                        <button
-                            onClick={saveRole}
-                            className="w-14 bg-blue-500 text-white p-2 rounded-md"
-                        >
-                            Save
-                        </button>
-                        <button
-                            onClick={props.onClose}
-                            className="w-14 bg-red-500 text-white p-2 rounded-md"
-                        >
-                            Cancel
-                        </button>
-                    </div>
+                        {creatingRole ? 'Create' : 'Update'}
+                    </button>
+                    <button
+                        onClick={props.onClose}
+                        className="w-14 bg-red-500 text-white p-2 rounded-md"
+                    >
+                        Cancel
+                    </button>
                 </div>
             </div>
         </div>

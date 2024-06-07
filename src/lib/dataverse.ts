@@ -1,4 +1,5 @@
 import { BusinessUnit } from "../model/BusinessUnit";
+import { Role } from "../model/Role";
 import { Table } from "../model/Table";
 import { TablePrivileges } from "../model/TablePrivileges";
 
@@ -159,4 +160,32 @@ export async function getBusinessUnits(): Promise<BusinessUnit[]> {
     });
 
     return businessUnits;
+}
+
+export async function getRoles(buId: string): Promise<Role[]> {
+    let response = await fetch(
+        `${baseUrl}/api/data/v9.2/roles?$select=name,roleid&$filter=(_businessunitid_value eq ${buId})&$orderby=name asc`,
+        {
+            method: "GET",
+            headers: {
+                "OData-MaxVersion": "4.0",
+                "OData-Version": "4.0",
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+                "Prefer": "odata.include-annotations=*"
+            }
+        }
+    );
+
+    let data = await response.json();
+
+    let roles: Role[] = data.value.map((role: any) => {
+        return {
+            id: role.roleid,
+            name: role.name
+        } as Role;
+
+    });
+
+    return roles;
 }
