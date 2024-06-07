@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
 import './App.css';
-import { Table } from '../../model/Table';
 import { TablePrivileges } from '../../model/TablePrivileges';
 import SaveRoleModal from '../../components/SaveRoleModal';
 import { BusinessUnit } from '../../model/BusinessUnit';
 
 function App() {
   const [sessionActive, setSessionActive] = useState(false);
-  const [privilages, setPrivilages] = useState({} as { [key: string]: string[] });
+  const [privilages, setPrivilages] = useState([] as TablePrivileges[]);
 
-  const [tables, setTables] = useState([] as Table[]);
   const [businessUnits, setBusinessUnits] = useState([] as BusinessUnit[]);
 
   const [loading, setLoading] = useState(false);
@@ -24,8 +22,8 @@ function App() {
     await chrome.action.setBadgeTextColor({ color: '#FFFFFF' });
 
     if (!sessionActive) {
-      await chrome.storage.local.set({ privilages: {} });
-      setPrivilages({});
+      await chrome.storage.local.set({ privilages: [] });
+      setPrivilages([]);
     }
 
     setSessionActive(!sessionActive);
@@ -35,15 +33,9 @@ function App() {
     let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     let tabId = tabs[0].id || 0;
 
-    let cachedTables = await chrome.storage.local.get('tables');
-    setTables(cachedTables.tables || {});
-
     let message = { action: 'GET_TABLES' };
 
-    setLoading(cachedTables.tables ? false : true);
-    let result = await chrome.tabs.sendMessage(tabId, message);
-    setLoading(false);
-    setTables(result);
+    let result = chrome.tabs.sendMessage(tabId, message);
 
     getBusinessUnits();
     getSessionActive();
@@ -70,7 +62,7 @@ function App() {
 
   const getPrivilegesFromLog = async () => {
     const result = await chrome.storage.local.get('privilages');
-    setPrivilages(result.privilages || {});
+    setPrivilages(result.privilages as TablePrivileges[] || []);
   }
 
   const saveAsRole = async (roleName: string, buId: string) => {
@@ -79,16 +71,9 @@ function App() {
     let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     let tabId = tabs[0].id || 0;
 
-    let tablePrivileges = Object.keys(privilages).map((key) => {
-      return {
-        LogicalName: tables.find(t => t.CollectionLogicalName === key)?.LogicalName || key,
-        Privilages: privilages[key]
-      } as TablePrivileges;
-    });
-
     let message = {
       action: 'CREATE_ROLE',
-      privilages: tablePrivileges,
+      privilages: privilages,
       roleName: roleName,
       buId: buId
     };
@@ -146,6 +131,11 @@ function App() {
             </button>
           }
         </div>
+        <div>
+          <input
+            className='w-full p-2 mb-2 rounded shadow-md'
+            type="text" placeholder='Search...' />
+        </div>
         <div
           className='h-auto max-h-96 overflow-y-auto bg-gray-100 rounded shadow-md min-h-52'
         >
@@ -153,9 +143,7 @@ function App() {
             className='w-full p-2'
           >
             <thead>
-              <tr
-                className='sticky top-0 bg-gray-200 z-10'
-              >
+              <tr className='sticky top-0 bg-gray-200 z-10'>
                 <th className='p-2 text-left'>Entity</th>
                 <th className='p-2 text-center'>Create</th>
                 <th className='p-2 text-center'>Read</th>
@@ -164,12 +152,12 @@ function App() {
               </tr>
             </thead>
             <tbody>
-              {Object.keys(privilages).length !== 0 && Object.keys(privilages).map((key) => (
+              {privilages && privilages.map((privilage: TablePrivileges) => (
                 <tr
                   className='border-b-2 border-gray-200 hover:bg-gray-300'
                 >
                   <td className='p-2 text-left'>{
-                    tables.find(t => t.CollectionLogicalName === key)?.DisplayName || key
+                    privilage.CollectionName
                   }</td>
                   {
                     ['Create', 'Read', 'Write', 'Delete'].map((permission) => {
@@ -181,7 +169,7 @@ function App() {
                             <div
                               className={
                                 `w-4 h-4 rounded-full 
-                                ${privilages[key].includes(permission) ? 'bg-green-500' : 'bg-gray-200'}`
+                                ${privilage.Privilages.includes(permission) ? 'bg-green-500' : 'bg-gray-200'}`
                               }
                             ></div>
                           </div>
@@ -192,7 +180,7 @@ function App() {
                 </tr>
               ))}
               {
-                Object.keys(privilages).length === 0 && <tr>
+                privilages.length === 0 && <tr>
                   <td colSpan={5}
                     className='text-center p-4 text-gray-400'>No data</td>
                 </tr>

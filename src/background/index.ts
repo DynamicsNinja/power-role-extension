@@ -1,4 +1,5 @@
 import { Table } from "../model/Table";
+import { TablePrivileges } from "../model/TablePrivileges";
 
 const handleResponse = (details: chrome.webRequest.WebRequestBodyDetails): void | chrome.webRequest.BlockingResponse => {
     // get  sessionActive from storage 
@@ -31,7 +32,7 @@ const handleResponse = (details: chrome.webRequest.WebRequestBodyDetails): void 
             return;
         }
 
-        let entity = match[1] ? match[1].slice(1) : "";
+        let entity: string = match[1] ? match[1].slice(1) : "";
 
         let tables = (await chrome.storage.local.get('tables')).tables as Table[] || [];
         let logicalNames = tables.map(t => t.CollectionLogicalName);
@@ -43,16 +44,21 @@ const handleResponse = (details: chrome.webRequest.WebRequestBodyDetails): void 
         console.log("URL: " + details.url);
         console.log(privilage + " - " + entity);
 
-        // get logged privilages from storage
         chrome.storage.local.get('privilages', (result) => {
-            let privilages = result.privilages || {};
+            let privilages: TablePrivileges[] = result.privilages || [];
 
-            if (!privilages[entity]) {
-                privilages[entity] = [];
-            }
+            let privilegesForEntity = privilages.filter(p => p.LogicalName === entity);
 
-            if (!privilages[entity].includes(privilage)) {
-                privilages[entity].push(privilage);
+            if (privilegesForEntity.length === 0) {
+                privilages.push({
+                    LogicalName: entity,
+                    Privilages: [privilage],
+                    CollectionName: tables.find(t => t.CollectionLogicalName === entity)?.DisplayName || entity
+                });
+            } else {
+                if (!privilegesForEntity[0].Privilages.includes(privilage)) {
+                    privilegesForEntity[0].Privilages.push(privilage);
+                }
             }
 
             // save privilages to storage
