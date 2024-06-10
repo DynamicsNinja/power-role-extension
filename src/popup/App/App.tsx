@@ -187,8 +187,12 @@ function App() {
             </div>
             {
               <button
+                disabled={businessUnits.length === 0}
                 onClick={openSaveRoleModal}
-                className={`${!sessionActive && privilages ? "visible" : "invisible"} bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded`}>
+                className={
+                  `${!sessionActive && privilages ? "visible" : "invisible"}
+                   bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50`
+                }>
                 Save as Role
               </button>
             }
