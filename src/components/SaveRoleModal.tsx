@@ -5,7 +5,8 @@ import { Role } from "../model/Role";
 export interface ISaveRoleModalProps {
     businessUnits: BusinessUnit[];
     onClose: () => void;
-    onSave: (roleName: string, buId: string) => void;
+    onCreate: (roleName: string, buId: string) => void;
+    onUpdate: (roleId: string, buId: string) => void;
 }
 
 export default function SaveRoleModal(props: ISaveRoleModalProps) {
@@ -42,8 +43,15 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
         getRoles(buId)
     }, [props.businessUnits])
 
-    const saveRole = () => {
-        props.onSave(roleName, businessUnit)
+    const createOrUpdateRole = () => {
+        if (creatingRole) {
+            props.onCreate(roleName, businessUnit)
+        } else {
+            if (!selectedRole) return
+
+            props.onUpdate(selectedRole.id, businessUnit)
+        }
+
     }
 
     return (
@@ -233,7 +241,7 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
                     className="flex justify-end space-x-2"
                 >
                     <button
-                        onClick={saveRole}
+                        onClick={createOrUpdateRole}
                         className="w-14 bg-blue-500 text-white p-2 rounded-md"
                     >
                         {creatingRole ? 'Create' : 'Update'}

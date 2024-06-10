@@ -1,3 +1,4 @@
+import { PrivilegeDepth } from "../enum/PrivilegeDepth";
 import { BusinessUnit } from "../model/BusinessUnit";
 import { Role } from "../model/Role";
 import { Table } from "../model/Table";
@@ -38,7 +39,7 @@ export async function getAllTables(): Promise<Table[]> {
     return tables;
 }
 
-export async function createRoleWithPrivileges(name: string, buId: string, tablePrivileges: TablePrivileges[]) {
+async function getPrivilegesByNames(tablePrivileges: TablePrivileges[]) {
     let privilegeNames: string[] = [];
 
     tablePrivileges.forEach(tablePrivilege => {
@@ -66,17 +67,73 @@ export async function createRoleWithPrivileges(name: string, buId: string, table
 
     let data = await response.json();
 
-    let privilages = data.value.map((privilege: any) => {
+    let privilages: any[] = data.value.map((privilege: any) => {
         return {
             id: privilege.privilegeid,
             name: privilege.name
         }
     });
 
+    return privilages;
+}
+
+export async function createRoleWithPrivileges(name: string, buId: string, tablePrivileges: TablePrivileges[]) {
+    let privilages = await getPrivilegesByNames(tablePrivileges);
+
+    privilages = privilages.map(p => {
+        return {
+            id: p.id,
+            depth: PrivilegeDepth.Organization
+        }
+    })
+
     let roleId = await createRole(name, buId);
     await addPrivilegesToRole(roleId, buId, privilages);
 
     return privilages;
+}
+
+export async function updateRoleWithPrivileges(roleId: string, buId: string, tablePrivileges: TablePrivileges[]) {
+    let newPrivileges = await getPrivilegesByNames(tablePrivileges);
+
+    let select = "privilegeid,roleid,privilegedepthmask";
+    let filter = `(roleid eq ${roleId})`;
+
+    let response = await fetch(
+        `${baseUrl}/api/data/v9.2/roleprivilegescollection?$select=${select}&$filter=${filter}`,
+        {
+            method: "GET",
+            headers: {
+                "OData-MaxVersion": "4.0",
+                "OData-Version": "4.0",
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+                "Prefer": "return=representation"
+            }
+        }
+    );
+
+    let existingPrivileges = await response.json();
+
+    let allTablePrivileges = existingPrivileges.value.map((tp: any) => {
+        return {
+            id: tp.privilegeid,
+            depth: tp.privilegedepthmask
+        }
+    });
+
+    newPrivileges.forEach(privilege => {
+        let existingPrivilege = existingPrivileges.value.find((ep: any) => ep.privilegeid === privilege.id);
+
+        if (!existingPrivilege) {
+            allTablePrivileges.push({
+                id: privilege.id,
+                depth: PrivilegeDepth.Organization
+            });
+        }
+    });
+
+    await addPrivilegesToRole(roleId, buId, allTablePrivileges);
 }
 
 async function addPrivilegesToRole(roleId: string, buId: string, privileges: any[]) {
@@ -96,11 +153,11 @@ async function addPrivilegesToRole(roleId: string, buId: string, privileges: any
                     privileges.map(privilege => {
                         return {
                             BusinessUnitId: buId,
-                            Depth: "Global",
+                            Depth: Math.log2(privilege.depth).toString(),
                             PrivilegeId: privilege.id,
-                            PrivilegeName: privilege.name,
-                            RecordFilterId: "00000000-0000-0000-0000-000000000000",
-                            RecordFilterUniqueName: ""
+                            // PrivilegeName: privilege.name,
+                            // RecordFilterId: "00000000-0000-0000-0000-000000000000",
+                            // RecordFilterUniqueName: ""
                         }
                     })
             })

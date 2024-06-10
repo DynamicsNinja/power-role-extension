@@ -5,6 +5,7 @@ import SaveRoleModal from '../../components/SaveRoleModal';
 import { BusinessUnit } from '../../model/BusinessUnit';
 import EntityPermissionsTable from '../../components/EntityPermissionsTable';
 import { Table } from '../../model/Table';
+import LodingModal from '../../components/LodingModal';
 
 function App() {
   const [sessionActive, setSessionActive] = useState(false);
@@ -15,7 +16,6 @@ function App() {
   const [businessUnits, setBusinessUnits] = useState([] as BusinessUnit[]);
 
   const [loading, setLoading] = useState(false);
-  const [creatingRole, setCreatingRole] = useState(false);
 
   const [saveRoleModalOpen, setSaveRoleModalOpen] = useState(false);
 
@@ -28,6 +28,7 @@ function App() {
     if (!sessionActive) {
       await chrome.storage.local.set({ privilages: [] });
       setPrivilages([]);
+      setFilteredPrivilages([]);
     }
 
     setSessionActive(!sessionActive);
@@ -89,7 +90,7 @@ function App() {
     setFilteredPrivilages(fetchedPrivilages);
   }
 
-  const saveAsRole = async (roleName: string, buId: string) => {
+  const createRole = async (roleName: string, buId: string) => {
     closeSaveRoleModal();
 
     let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -102,9 +103,27 @@ function App() {
       buId: buId
     };
 
-    setCreatingRole(true);
+    setLoading(true);
     let result = await chrome.tabs.sendMessage(tabId, message);
-    setCreatingRole(false);
+    setLoading(false);
+  }
+
+  const updateRole = async (roleId: string, buId: string) => {
+    closeSaveRoleModal();
+
+    let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    let tabId = tabs[0].id || 0;
+
+    let message = {
+      action: 'UPDATE_ROLE',
+      privilages: privilages,
+      roleId: roleId,
+      buId: buId
+    };
+
+    setLoading(true);
+    let result = await chrome.tabs.sendMessage(tabId, message);
+    setLoading(false);
   }
 
   const openSaveRoleModal = () => {
@@ -124,7 +143,8 @@ function App() {
 
     let filtered = privilages.filter(p =>
       p.CollectionName.toLowerCase().includes(value.toLowerCase()) ||
-      p.LogicalName.toLowerCase().includes(value.toLowerCase())
+      p.LogicalName.toLowerCase().includes(value.toLowerCase()) ||
+      p.CollectionLogicalName.toLowerCase().includes(value.toLowerCase())
     );
 
     setFilteredPrivilages(filtered);
@@ -141,52 +161,51 @@ function App() {
         <SaveRoleModal
           businessUnits={businessUnits}
           onClose={closeSaveRoleModal}
-          onSave={saveAsRole}
+          onCreate={createRole}
+          onUpdate={updateRole}
         ></SaveRoleModal>}
-      {loading && <div className='text-center text-2xl font-bold mb-4'>Loading...</div>}
-      {!loading &&
-        <>
-          <div
-            className='flex items-center space-x-4 mb-2'
+      {loading && <LodingModal message='Loading...'></LodingModal>}
+      <>
+        <div
+          className='flex items-center space-x-4 mb-2'
+        >
+          <button
+            onClick={startStopSession}
+            className='bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded w-16'
           >
-            <button
-              onClick={startStopSession}
-              className='bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded w-16'
-            >
-              {sessionActive ? 'Stop' : 'Start'}
-            </button>
-            {sessionActive && <div className={`text-xl font-bold animate-blink`}>Recording</div>}
-          </div>
+            {sessionActive ? 'Stop' : 'Start'}
+          </button>
+          {sessionActive && <div className={`text-xl font-bold animate-blink`}>Recording</div>}
+        </div>
 
-          <div>
+        <div>
+          <div
+            className='flex justify-between mb-2'
+          >
             <div
-              className='flex justify-between mb-2'
-            >
-              <div
-                className='text-xl font-bold'>Privileges ({Object.keys(privilages).length})
-              </div>
-              {
-                <button
-                  onClick={openSaveRoleModal}
-                  className={`${sessionActive && privilages ? "visible" : "invisible"} bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded`}>
-                  {creatingRole ? 'Creating...' : 'Save as Role'}
-                </button>
-              }
+              className='text-xl font-bold'>Privileges ({Object.keys(privilages).length})
             </div>
-            <div>
-              <input
-                onChange={handleSearchPrivilages}
-                className='w-full p-2 mb-2 rounded shadow-md border border-gray-200'
-                type="text" placeholder='Search...' />
-            </div>
-            <div
-              className='h-auto max-h-96 overflow-y-auto bg-gray-100 rounded shadow-md min-h-52'
-            >
-              <EntityPermissionsTable tablePrivileges={filteredPrivilages} />
-            </div>
+            {
+              <button
+                onClick={openSaveRoleModal}
+                className={`${!sessionActive && privilages ? "visible" : "invisible"} bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded`}>
+                Save as Role
+              </button>
+            }
           </div>
-        </>
-      }
+          <div>
+            <input
+              onChange={handleSearchPrivilages}
+              className='w-full p-2 mb-2 rounded shadow-md border border-gray-200'
+              type="text" placeholder='Search...' />
+          </div>
+          <div
+            className='h-auto max-h-96 overflow-y-auto bg-gray-100 rounded shadow-md min-h-52'
+          >
+            <EntityPermissionsTable tablePrivileges={filteredPrivilages} />
+          </div>
+        </div>
+      </>
 
     </div>
   );

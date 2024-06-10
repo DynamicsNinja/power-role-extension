@@ -47,11 +47,12 @@ const handleResponse = (details: chrome.webRequest.WebRequestBodyDetails): void 
         chrome.storage.local.get('privilages', (result) => {
             let privilages: TablePrivileges[] = result.privilages || [];
 
-            let privilegesForEntity = privilages.filter(p => p.LogicalName === entity);
+            let privilegesForEntity = privilages.filter(p => p.CollectionLogicalName === entity);
 
             if (privilegesForEntity.length === 0) {
                 privilages.push({
-                    LogicalName: entity,
+                    CollectionLogicalName: entity,
+                    LogicalName: tables.find(t => t.CollectionLogicalName === entity)?.LogicalName || "",
                     Privilages: [privilage],
                     CollectionName: tables.find(t => t.CollectionLogicalName === entity)?.DisplayName || entity
                 });
