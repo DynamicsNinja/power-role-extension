@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BusinessUnit } from "../model/BusinessUnit";
 import { Role } from "../model/Role";
+import Modal from "./Modal";
 
 export interface ISaveRoleModalProps {
     businessUnits: BusinessUnit[];
@@ -55,40 +56,12 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
     }
 
     return (
-        <div
-            className="p-2 fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center"
-        >
+        <Modal
+            onClose={props.onClose}
+            title={"Save Role"}>
             <div
-                className="bg-white p-4 rounded-lg w-full flex flex-col space-y-2"
+            className="flex flex-col space-y-2"
             >
-                <div
-                    className="flex justify-between items-center"
-                >
-                    <div
-                        className="text-lg font-bold"
-                    >
-                        Save Role
-                    </div>
-                    <div
-                        className="cursor-pointer"
-                        onClick={props.onClose}
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-6 w-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                            />
-                        </svg>
-                    </div>
-                </div>
                 <div
                     className="flex flex-col space-y-2"
                 >
@@ -254,6 +227,7 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
                     </button>
                 </div>
             </div>
-        </div>
+        </Modal>
+
     )
 }

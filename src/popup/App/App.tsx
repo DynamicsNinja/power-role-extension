@@ -156,7 +156,7 @@ function App() {
   }, []);
 
   return (
-    <div className="flex flex-col w-[500px] h-auto p-4">
+    <div className="flex flex-col w-[500px] h-auto">
       {saveRoleModalOpen &&
         <SaveRoleModal
           businessUnits={businessUnits}
@@ -165,7 +165,38 @@ function App() {
           onUpdate={updateRole}
         ></SaveRoleModal>}
       {loading && <LodingModal message='Loading...'></LodingModal>}
-      <>
+      <div
+        className='flex justify-between w-full border-b-2 border-gray-200 p-4 bg-gray-200 shadow-md'
+      >
+        <div
+          className='flex justify-center items-center space-x-2'
+        >
+          <img
+            className='w-8 h-8'
+            src={"/logo192.png"} alt="" />
+          <div className='text-xl font-bold'>
+            Power Roles
+          </div>
+        </div>
+        <div
+          className='flex justify-center items-center space-x-2'
+        >
+          <div
+            title='Buy me a coffee'
+            onClick={() => chrome.tabs.create({ url: 'https://www.buymeacoffee.com/dynamicsninja' })}
+          >
+            <img
+              className='w-8 h-8 cursor-pointer border-2 border-black rounded-full'
+              src="/img/buymeacoffee.gif" alt="" />
+          </div>
+
+          <img
+            className='w-8 h-8 cursor-pointer hover:opacity-50 transform hover:scale-110'
+            src="/img/settings.svg" alt="" />
+        </div>
+      </div>
+
+      <div className='p-4'>
         <div
           className='flex items-center space-x-4 mb-2'
         >
@@ -209,7 +240,7 @@ function App() {
             <EntityPermissionsTable tablePrivileges={filteredPrivilages} />
           </div>
         </div>
-      </>
+      </div>
 
     </div>
   );
