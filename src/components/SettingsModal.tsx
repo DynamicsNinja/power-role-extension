@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Settings } from "../model/Settings";
 import Modal from "./Modal";
+import { ShowNames } from "../enum/ShowNames";
 
 interface ISettingsModalProps {
     settings: Settings;
@@ -33,7 +34,7 @@ export default function SettingsModal(props: ISettingsModalProps) {
                         htmlFor="">Entity names</label>
                     <select
                         onChange={(e) => setSettings({ showNames: parseInt(e.target.value) })}
-                        value={settings.showNames || 1}
+                        value={settings.showNames || ShowNames.DisplayNames}
                         className="border border-gray-300 p-2"
                         name="" id="">
                         <option value="1">Logical Names</option>

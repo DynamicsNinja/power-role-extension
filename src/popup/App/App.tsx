@@ -24,7 +24,7 @@ function App() {
   const [saveRoleModalOpen, setSaveRoleModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
-  const [settings, setSettings] = useState({ showNames: 1 } as Settings);
+  const [settings, setSettings] = useState({ showNames: ShowNames.DisplayNames } as Settings);
 
   const startStopSession = async () => {
     await chrome.storage.local.set({ sessionActive: !sessionActive });
@@ -66,7 +66,7 @@ function App() {
 
   const getSettings = async () => {
     const result = await chrome.storage.local.get('settings');
-    setSettings(result.settings || { showNames: 1 });
+    setSettings(result.settings || { showNames: ShowNames.DisplayNames });
   }
 
   const getBusinessUnits = async () => {
