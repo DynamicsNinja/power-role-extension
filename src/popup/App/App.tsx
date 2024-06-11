@@ -9,6 +9,7 @@ import LodingModal from '../../components/LodingModal';
 import SettingsModal from '../../components/SettingsModal';
 import { Settings } from '../../model/Settings';
 import { ShowNames } from '../../enum/ShowNames';
+import Header from '../../components/Header';
 
 function App() {
   const [sessionActive, setSessionActive] = useState(false);
@@ -186,39 +187,8 @@ function App() {
           onUpdate={updateRole}
         ></SaveRoleModal>}
       {loading && <LodingModal message='Loading...'></LodingModal>}
-      <div
-        className='flex justify-between w-full border-b-2 border-gray-200 p-4 bg-gray-200 shadow-md'
-      >
-        <div
-          className='flex justify-center items-center space-x-2'
-        >
-          <img
-            className='w-8 h-8'
-            src={"/logo192.png"} alt="" />
-          <div className='text-xl font-bold'>
-            Power Roles
-          </div>
-        </div>
-        <div
-          className='flex justify-center items-center space-x-2'
-        >
-          <div
-            title='Buy me a coffee'
-            onClick={() => chrome.tabs.create({ url: 'https://www.buymeacoffee.com/dynamicsninja' })}
-          >
-            <img
-              className='w-8 h-8 cursor-pointer border-2 border-black rounded-full'
-              src="/img/buymeacoffee.gif" alt="" />
-          </div>
 
-
-          <img
-            onClick={() => setSettingsModalOpen(true)}
-            className='w-8 h-8 cursor-pointer hover:opacity-50 transform hover:scale-110'
-            src="/img/settings.svg" alt="" />
-
-        </div>
-      </div>
+      <Header onSettingsClick={() => setSettingsModalOpen(true)}></Header>
 
       <div className='p-4'>
         <div
@@ -256,14 +226,14 @@ function App() {
             <input
               onChange={handleSearchPrivilages}
               className='w-full p-2 mb-2 rounded shadow-md border border-gray-200'
-              type="text" placeholder='Search...' />
+              type="text" placeholder='search...' />
           </div>
           <div
             className='h-auto max-h-96 overflow-y-auto bg-gray-100 rounded shadow-md min-h-52'
           >
             <EntityPermissionsTable
               showDisplayNames={
-                settings.showNames  === ShowNames.DisplayNames
+                settings.showNames === ShowNames.DisplayNames
               }
               tablePrivileges={filteredPrivilages} />
           </div>
