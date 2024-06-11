@@ -3,14 +3,21 @@ import { TablePrivileges } from "../model/TablePrivileges"
 
 export interface TablePrivilegesProps {
     tablePrivileges: TablePrivileges[];
+    showDisplayNames?: boolean;
 }
 
 export default function EntityPermissionsTable(props: TablePrivilegesProps) {
     const [tablePrivileges, setTablePrivileges] = useState([] as TablePrivileges[]);
+    const [showDisplayNames, setShowDisplayNames] = useState<boolean>(props.showDisplayNames || false);
+
 
     useEffect(() => {
         setTablePrivileges(props.tablePrivileges);
     }, [props.tablePrivileges]);
+
+    useEffect(() => {
+        setShowDisplayNames(props.showDisplayNames || false);
+    }, [props.showDisplayNames]);
 
     return (
         <table
@@ -31,7 +38,7 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
                         className='border-b-2 border-gray-200 hover:bg-gray-300'
                     >
                         <td className='p-2 text-left'>{
-                            privilage.CollectionName
+                            showDisplayNames ? privilage.CollectionName : privilage.LogicalName
                         }</td>
                         {
                             ['Create', 'Read', 'Write', 'Delete'].map((permission) => {

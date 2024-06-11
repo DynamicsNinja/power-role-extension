@@ -6,6 +6,9 @@ import { BusinessUnit } from '../../model/BusinessUnit';
 import EntityPermissionsTable from '../../components/EntityPermissionsTable';
 import { Table } from '../../model/Table';
 import LodingModal from '../../components/LodingModal';
+import SettingsModal from '../../components/SettingsModal';
+import { Settings } from '../../model/Settings';
+import { ShowNames } from '../../enum/ShowNames';
 
 function App() {
   const [sessionActive, setSessionActive] = useState(false);
@@ -18,6 +21,9 @@ function App() {
   const [loading, setLoading] = useState(false);
 
   const [saveRoleModalOpen, setSaveRoleModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+
+  const [settings, setSettings] = useState({ showNames: 1 } as Settings);
 
   const startStopSession = async () => {
     await chrome.storage.local.set({ sessionActive: !sessionActive });
@@ -54,6 +60,12 @@ function App() {
     getBusinessUnits();
     getSessionActive();
     getPrivilegesFromLog();
+    getSettings();
+  }
+
+  const getSettings = async () => {
+    const result = await chrome.storage.local.get('settings');
+    setSettings(result.settings || { showNames: 1 });
   }
 
   const getBusinessUnits = async () => {
@@ -157,6 +169,15 @@ function App() {
 
   return (
     <div className="flex flex-col w-[500px] h-auto">
+      {settingsModalOpen &&
+        <SettingsModal
+          settings={settings}
+          onSave={(settings: Settings) => {
+            setSettingsModalOpen(false)
+            setSettings(settings)
+          }}
+          onClose={() => setSettingsModalOpen(false)}
+        />}
       {saveRoleModalOpen &&
         <SaveRoleModal
           businessUnits={businessUnits}
@@ -190,9 +211,12 @@ function App() {
               src="/img/buymeacoffee.gif" alt="" />
           </div>
 
+
           <img
+            onClick={() => setSettingsModalOpen(true)}
             className='w-8 h-8 cursor-pointer hover:opacity-50 transform hover:scale-110'
             src="/img/settings.svg" alt="" />
+
         </div>
       </div>
 
@@ -237,7 +261,11 @@ function App() {
           <div
             className='h-auto max-h-96 overflow-y-auto bg-gray-100 rounded shadow-md min-h-52'
           >
-            <EntityPermissionsTable tablePrivileges={filteredPrivilages} />
+            <EntityPermissionsTable
+              showDisplayNames={
+                settings.showNames  === ShowNames.DisplayNames
+              }
+              tablePrivileges={filteredPrivilages} />
           </div>
         </div>
       </div>
