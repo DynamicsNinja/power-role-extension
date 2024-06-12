@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Power Roles",
   "version": "1.0.0",
-  "description": "A simple Chrome extension with React.",
+  "description": "Extension that allows you to record user actions and create or edit roles based on them.",
   "icons": {
     "16": "logo192.png",
     "48": "logo192.png",
