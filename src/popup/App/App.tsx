@@ -10,10 +10,10 @@ import SettingsModal from '../../components/SettingsModal';
 import { Settings } from '../../model/Settings';
 import { ShowNames } from '../../enum/ShowNames';
 import Header from '../../components/Header';
+import usePrivileges from '../../hooks/usePrivilages';
 
 function App() {
   const [sessionActive, setSessionActive] = useState(false);
-  const [privilages, setPrivilages] = useState([] as TablePrivileges[]);
   const [filteredPrivilages, setFilteredPrivilages] = useState([] as TablePrivileges[]);
   const [tables, setTables] = useState([] as Table[]);
 
@@ -26,6 +26,8 @@ function App() {
 
   const [settings, setSettings] = useState({ showNames: ShowNames.DisplayNames } as Settings);
 
+  const { privilages, isLoading } = usePrivileges()
+
   const startStopSession = async () => {
     await chrome.storage.local.set({ sessionActive: !sessionActive });
     await chrome.action.setBadgeText({ text: sessionActive ? '' : 'REC' });
@@ -34,7 +36,6 @@ function App() {
 
     if (!sessionActive) {
       await chrome.storage.local.set({ privilages: [] });
-      setPrivilages([]);
       setFilteredPrivilages([]);
     }
 
@@ -60,7 +61,6 @@ function App() {
 
     getBusinessUnits();
     getSessionActive();
-    getPrivilegesFromLog();
     getSettings();
   }
 
@@ -85,22 +85,6 @@ function App() {
   const getSessionActive = async () => {
     const result = await chrome.storage.local.get('sessionActive');
     setSessionActive(result.sessionActive);
-  }
-
-  const getPrivilegesFromLog = async () => {
-    const result = await chrome.storage.local.get('privilages');
-
-    let fetchedPrivilages = result.privilages as TablePrivileges[] || [];
-
-    // sort by entity name
-    fetchedPrivilages.sort((a, b) => {
-      if (a.CollectionName < b.CollectionName) { return -1; }
-      if (a.CollectionName > b.CollectionName) { return 1; }
-      return 0;
-    });
-
-    setPrivilages(fetchedPrivilages);
-    setFilteredPrivilages(fetchedPrivilages);
   }
 
   const createRole = async (roleName: string, buId: string) => {
@@ -150,15 +134,15 @@ function App() {
   const handleSearchPrivilages = (e: any) => {
     let value = e.target.value;
     if (value === '') {
-      setFilteredPrivilages(privilages);
+      setFilteredPrivilages(privilages || []);
       return;
     }
 
-    let filtered = privilages.filter(p =>
+    let filtered = privilages?.filter(p =>
       p.CollectionName.toLowerCase().includes(value.toLowerCase()) ||
       p.LogicalName.toLowerCase().includes(value.toLowerCase()) ||
       p.CollectionLogicalName.toLowerCase().includes(value.toLowerCase())
-    );
+    ) || [];
 
     setFilteredPrivilages(filtered);
 
@@ -167,6 +151,10 @@ function App() {
   useEffect(() => {
     getTables();
   }, []);
+
+  useEffect(() => {
+    setFilteredPrivilages(privilages || []);
+  }, [privilages]);
 
   return (
     <div className="flex flex-col w-[500px] h-auto">
@@ -186,7 +174,7 @@ function App() {
           onCreate={createRole}
           onUpdate={updateRole}
         ></SaveRoleModal>}
-      {loading && <LodingModal message='Loading...'></LodingModal>}
+      {(isLoading || loading) && <LodingModal message='Loading...'></LodingModal>}
 
       <Header onSettingsClick={() => setSettingsModalOpen(true)}></Header>
 
@@ -208,14 +196,14 @@ function App() {
             className='flex justify-between mb-2'
           >
             <div
-              className='text-xl font-bold'>Privileges ({Object.keys(privilages).length})
+              className='text-xl font-bold'>Privileges ({privilages?.length})
             </div>
             {
               <button
                 disabled={businessUnits.length === 0}
                 onClick={openSaveRoleModal}
                 className={
-                  `${!sessionActive && privilages ? "visible" : "invisible"}
+                  `${!sessionActive && privilages?.length !== 0 ? "visible" : "invisible"}
                    bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50`
                 }>
                 Save as Role
