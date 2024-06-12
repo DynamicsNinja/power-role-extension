@@ -232,9 +232,7 @@ function App() {
             className='h-auto max-h-96 overflow-y-auto bg-gray-100 rounded shadow-md min-h-52'
           >
             <EntityPermissionsTable
-              showDisplayNames={
-                settings.showNames === ShowNames.DisplayNames
-              }
+              names={settings.showNames}
               tablePrivileges={filteredPrivilages} />
           </div>
         </div>

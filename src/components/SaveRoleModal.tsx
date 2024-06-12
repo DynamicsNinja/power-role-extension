@@ -20,6 +20,8 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
 
     const [selectedRole, setSelectedRole] = useState<Role | null>(null)
 
+    const [errorMessage, setErrorMessage] = useState<string>("")
+
     const getRoles = async (buId: string) => {
         let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         let tabId = tabs[0].id || 0;
@@ -34,6 +36,16 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
         setRoles(result);
     }
 
+    const validateCreate = () => {
+        if (roleName === "") {
+            setErrorMessage("Name should not be empty")
+            return false
+        } else {
+            setErrorMessage("")
+            return true
+        }
+    }
+
     useEffect(() => {
         if (props.businessUnits.length === 0) return
 
@@ -46,13 +58,14 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
 
     const createOrUpdateRole = () => {
         if (creatingRole) {
+            if (!validateCreate()) return
+
             props.onCreate(roleName, businessUnit)
         } else {
             if (!selectedRole) return
 
             props.onUpdate(selectedRole.id, businessUnit)
         }
-
     }
 
     return (
@@ -60,7 +73,7 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
             onClose={props.onClose}
             title={"Save Role"}>
             <div
-            className="flex flex-col space-y-2"
+                className="flex flex-col space-y-2"
             >
                 <div
                     className="flex flex-col space-y-2"
@@ -213,6 +226,18 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
                 <div
                     className="flex justify-end space-x-2"
                 >
+                    <div
+                        className="w-full flex items-center"
+                    >
+                        {
+                            errorMessage &&
+                            <div
+                                className="text-red-500 text-sm"
+                            >
+                                {errorMessage}
+                            </div>
+                        }
+                    </div>
                     <button
                         onClick={createOrUpdateRole}
                         className="w-14 bg-blue-500 text-white p-2 rounded-md"

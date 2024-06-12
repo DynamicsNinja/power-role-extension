@@ -16,7 +16,7 @@ export default function SettingsModal(props: ISettingsModalProps) {
         await chrome.storage.local.set({ settings: settings })
         props.onSave(settings)
     }
-
+    
     useEffect(() => {
         setSettings(props.settings)
     }, [props.settings])
@@ -39,6 +39,7 @@ export default function SettingsModal(props: ISettingsModalProps) {
                         name="" id="">
                         <option value="1">Logical Names</option>
                         <option value="2">Display Names</option>
+                        <option value="3">Both</option>
                     </select>
                 </div>
                 <div
