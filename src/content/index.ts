@@ -11,18 +11,6 @@ const getTables = async () => {
     return tables;
 }
 
-const handleCreateRole = async (roleName: string, buId: string, privilages: TablePrivileges[]) => {
-    console.log(privilages);
-
-    await createRoleWithPrivileges(roleName, buId, privilages);
-}
-
-const handleUpdateRole = async (roleId: string, buId: string, privilages: TablePrivileges[]) => {
-    console.log(privilages);
-
-    await updateRoleWithPrivileges(roleId, buId, privilages);
-}
-
 const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) => {
     debugger
     switch (message.action) {
@@ -38,7 +26,7 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
                 let privilages = message.privilages as TablePrivileges[];
                 let roleName = message.roleName;
                 let buId = message.buId;
-                const result = await handleCreateRole(roleName, buId, privilages);
+                await createRoleWithPrivileges(roleName, buId, privilages);
                 sendResponse(true);
             })();
 
@@ -49,7 +37,7 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
                 let privilages = message.privilages as TablePrivileges[];
                 let roleId = message.roleId;
                 let buId = message.buId;
-                const result = await handleUpdateRole(roleId, buId, privilages);
+                await updateRoleWithPrivileges(roleId, buId, privilages);
                 sendResponse(true);
             })();
 

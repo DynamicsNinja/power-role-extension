@@ -137,7 +137,7 @@ export async function updateRoleWithPrivileges(roleId: string, buId: string, tab
 }
 
 async function addPrivilegesToRole(roleId: string, buId: string, privileges: any[]) {
-    let response = await fetch(
+    await fetch(
         `${baseUrl}/api/data/v9.0/roles(${roleId})/Microsoft.Dynamics.CRM.ReplacePrivilegesRole`,
         {
             method: "POST",
@@ -155,9 +155,6 @@ async function addPrivilegesToRole(roleId: string, buId: string, privileges: any
                             BusinessUnitId: buId,
                             Depth: Math.log2(privilege.depth).toString(),
                             PrivilegeId: privilege.id,
-                            // PrivilegeName: privilege.name,
-                            // RecordFilterId: "00000000-0000-0000-0000-000000000000",
-                            // RecordFilterUniqueName: ""
                         }
                     })
             })

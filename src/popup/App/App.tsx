@@ -15,7 +15,6 @@ import usePrivileges from '../../hooks/usePrivilages';
 function App() {
   const [sessionActive, setSessionActive] = useState(false);
   const [filteredPrivilages, setFilteredPrivilages] = useState([] as TablePrivileges[]);
-  const [tables, setTables] = useState([] as Table[]);
 
   const [businessUnits, setBusinessUnits] = useState([] as BusinessUnit[]);
 
@@ -40,28 +39,6 @@ function App() {
     }
 
     setSessionActive(!sessionActive);
-  }
-
-  const getTables = async () => {
-    let cahcedTables = (await chrome.storage.local.get('tables')).tables as Table[] || [];
-    setTables(cahcedTables);
-
-    let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    let tabId = tabs[0].id || 0;
-
-    let message = { action: 'GET_TABLES' };
-
-    if (cahcedTables.length === 0) {
-      setLoading(true);
-      await chrome.tabs.sendMessage(tabId, message);
-      setLoading(false);
-    } else {
-      chrome.tabs.sendMessage(tabId, message);
-    }
-
-    getBusinessUnits();
-    getSessionActive();
-    getSettings();
   }
 
   const getSettings = async () => {
@@ -101,7 +78,7 @@ function App() {
     };
 
     setLoading(true);
-    let result = await chrome.tabs.sendMessage(tabId, message);
+    await chrome.tabs.sendMessage(tabId, message);
     setLoading(false);
   }
 
@@ -119,7 +96,7 @@ function App() {
     };
 
     setLoading(true);
-    let result = await chrome.tabs.sendMessage(tabId, message);
+    await chrome.tabs.sendMessage(tabId, message);
     setLoading(false);
   }
 
@@ -149,6 +126,27 @@ function App() {
   }
 
   useEffect(() => {
+    const getTables = async () => {
+      let cahcedTables = (await chrome.storage.local.get('tables')).tables as Table[] || [];
+  
+      let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      let tabId = tabs[0].id || 0;
+  
+      let message = { action: 'GET_TABLES' };
+  
+      if (cahcedTables.length === 0) {
+        setLoading(true);
+        await chrome.tabs.sendMessage(tabId, message);
+        setLoading(false);
+      } else {
+        chrome.tabs.sendMessage(tabId, message);
+      }
+  
+      getBusinessUnits();
+      getSessionActive();
+      getSettings();
+    }
+    
     getTables();
   }, []);
 
