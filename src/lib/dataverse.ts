@@ -44,7 +44,7 @@ async function getPrivilegesByNames(tablePrivileges: TablePrivileges[]) {
 
     tablePrivileges.forEach(tablePrivilege => {
         tablePrivilege.Privilages.forEach(p => {
-            privilegeNames.push(`prv${p}${tablePrivilege.LogicalName}`);
+            privilegeNames.push(`prv${p.name}${tablePrivilege.LogicalName}`);
         });
     });
 
@@ -67,12 +67,29 @@ async function getPrivilegesByNames(tablePrivileges: TablePrivileges[]) {
 
     let data = await response.json();
 
-    let privilages: any[] = data.value.map((privilege: any) => {
-        return {
-            id: privilege.privilegeid,
-            name: privilege.name
-        }
+    console.log(data);
+
+    let privilages: any[] = [];
+
+    tablePrivileges.forEach(tp => {
+        tp.Privilages.forEach(p => {
+            let privilege = data.value.find((pr: any) => pr.name.toLowerCase() === `prv${p.name}${tp.LogicalName}`.toLowerCase());
+
+            if (p.depth === PrivilegeDepth.None) {
+                return;
+            }
+
+            if (privilege) {
+                privilages.push({
+                    id: privilege.privilegeid,
+                    name: privilege.name,
+                    depth: p.depth
+                });
+            }
+        });
     });
+
+    console.log(privilages);
 
     return privilages;
 }
@@ -83,9 +100,11 @@ export async function createRoleWithPrivileges(name: string, buId: string, table
     privilages = privilages.map(p => {
         return {
             id: p.id,
-            depth: PrivilegeDepth.Organization
+            depth: Math.log2(p.depth)
         }
     })
+
+    console.log(privilages);
 
     let roleId = await createRole(name, buId);
     await addPrivilegesToRole(roleId, buId, privilages);
@@ -128,7 +147,7 @@ export async function updateRoleWithPrivileges(roleId: string, buId: string, tab
         if (!existingPrivilege) {
             allTablePrivileges.push({
                 id: privilege.id,
-                depth: PrivilegeDepth.Organization
+                depth: Math.log2(privilege.depth)
             });
         }
     });
@@ -153,7 +172,7 @@ async function addPrivilegesToRole(roleId: string, buId: string, privileges: any
                     privileges.map(privilege => {
                         return {
                             BusinessUnitId: buId,
-                            Depth: Math.log2(privilege.depth).toString(),
+                            Depth: privilege.depth.toString(),
                             PrivilegeId: privilege.id,
                         }
                     })

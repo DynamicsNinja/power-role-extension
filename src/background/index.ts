@@ -1,3 +1,6 @@
+import { PrivilegeDepth } from "../enum/PrivilegeDepth";
+import { PrivilegeName } from "../enum/PrivilegeName";
+import { Privilege } from "../model/Privilege";
 import { Table } from "../model/Table";
 import { TablePrivileges } from "../model/TablePrivileges";
 
@@ -49,16 +52,33 @@ const handleResponse = (details: chrome.webRequest.WebRequestBodyDetails): void 
 
             let privilegesForEntity = privilages.filter(p => p.CollectionLogicalName === entity);
 
+
+
             if (privilegesForEntity.length === 0) {
+                let privilegesList = ["Create", "Read", "Write", "Delete"];
+
                 privilages.push({
                     CollectionLogicalName: entity,
                     LogicalName: tables.find(t => t.CollectionLogicalName === entity)?.LogicalName || "",
-                    Privilages: [privilage],
-                    CollectionName: tables.find(t => t.CollectionLogicalName === entity)?.DisplayName || entity
+                    Privilages:
+                        privilegesList.map(p => {
+                            return {
+                                name: p as PrivilegeName,
+                                depth: p === privilage ? PrivilegeDepth.Organization : PrivilegeDepth.None
+                            } as Privilege;
+                        }),
+                    CollectionName: tables.find(t => t.CollectionLogicalName === entity)?.DisplayName || entity,
                 });
             } else {
-                if (!privilegesForEntity[0].Privilages.includes(privilage)) {
-                    privilegesForEntity[0].Privilages.push(privilage);
+                let privilege = privilegesForEntity[0].Privilages.find(p => p.name === privilage);
+
+                if (privilege) {
+                    privilege.depth = PrivilegeDepth.Organization;
+                } else {
+                    privilegesForEntity[0].Privilages.push({
+                        name: privilage as PrivilegeName,
+                        depth: PrivilegeDepth.Organization
+                    });
                 }
             }
 
