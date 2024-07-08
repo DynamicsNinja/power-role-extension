@@ -59,22 +59,35 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
         }
     }
 
+    const onRowClick = async (privilage: TablePrivileges) => {
+        let initialPrivilege = privilage.Privilages.map(p => p.depth).reduce((a, b) => a === b ? a : PrivilegeDepth.Organization);
+        let newPrivilegeDepth = cycleDepthsOnClick(initialPrivilege);
 
-    const privilageDepthColor = (depth: PrivilegeDepth) => {
-        switch (depth) {
-            case PrivilegeDepth.None:
-                return 'bg-gray-200';
-            case PrivilegeDepth.User:
-                return 'bg-blue-200';
-            case PrivilegeDepth.BusinessUnit:
-                return 'bg-green-200';
-            case PrivilegeDepth.ParentChildBusinessUnit:
-                return 'bg-yellow-200';
-            case PrivilegeDepth.Organization:
-                return 'bg-red-200';
-            default:
-                return 'bg-gray-200';
-        }
+        privilage.Privilages.forEach(p => {
+            p.depth = newPrivilegeDepth;
+        });
+
+        await chrome.storage.local.set({ privilages: tablePrivileges });
+        setTablePrivileges([...tablePrivileges]);
+    }
+
+    const onColumnClick = async (action: string) => {
+        // initial privilege should be Organization or value that is set on ALL rows
+        let initialPrivilege = tablePrivileges.map(p => p.Privilages.filter(pr => pr.name === action)[0].depth).reduce((a, b) => a === b ? a : PrivilegeDepth.Organization);
+        let newPrivilegeDepth = cycleDepthsOnClick(initialPrivilege);
+
+        tablePrivileges.forEach(tp => {
+            tp.Privilages.forEach(p => {
+                console.log(p.name, action);
+
+                if (p.name === action) {
+                    p.depth = newPrivilegeDepth
+                }
+            });
+        });
+
+        await chrome.storage.local.set({ privilages: tablePrivileges });
+        setTablePrivileges([...tablePrivileges]);
     }
 
     const actions = ['Create', 'Read', 'Write', 'Delete'];
@@ -94,7 +107,9 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
             <thead>
                 <tr className='sticky top-0 bg-gray-200 z-10'>
                     <th className='p-2 text-left'>Entity</th>
-                    {actions.map((action) => <th className='p-2 text-center'>{action}</th>)}
+                    {actions.map((action) => <th
+                        onClick={() => onColumnClick(action)}
+                        className='cursor-pointer p-2 text-center'>{action}</th>)}
                 </tr>
             </thead>
             <tbody>
@@ -103,17 +118,7 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
                         className='border-b-2 border-gray-200 hover:bg-gray-300 cursor-pointer'
                     >
                         <td
-                            onClick={async () => {
-                                let initialPrivilege = privilage.Privilages.map(p => p.depth).reduce((a, b) => a === b ? a : PrivilegeDepth.Organization);
-                                let newPrivilegeDepth = cycleDepthsOnClick(initialPrivilege);
-
-                                privilage.Privilages.forEach(p => {
-                                    p.depth = newPrivilegeDepth;
-                                });
-
-                                await chrome.storage.local.set({ privilages: tablePrivileges });
-                                setTablePrivileges([...tablePrivileges]);
-                            }}
+                            onClick={() => { onRowClick(privilage) }}
                             className='p-2 text-left'>{renderName(privilage)}</td>
                         {
                             privilage.Privilages.map((p) => {
