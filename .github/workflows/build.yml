@@ -18,7 +18,7 @@ jobs:
         id: update_version
         run: |
           # Read the current version from manifest.json
-          CURRENT_VERSION=$(jq -r '.version' manifest.json)
+          CURRENT_VERSION=$(jq -r '.version' public/manifest.json)
           
           # Extract the version prefix (1.1 in 1.1.152)
           VERSION_PREFIX=$(echo $CURRENT_VERSION | cut -d '.' -f 1-2)
