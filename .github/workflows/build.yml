@@ -16,11 +16,9 @@ jobs:
         run: npm install
       - name: Build
         run: npm run build
-      - name: Zip eveything in build folder
-        run: zip -r build.zip build
-      - name: Upload build.zip
+      - name: Upload build
         uses: actions/upload-artifact@v2
         with:
           name: build
-          path: build.zip
+          path: build
 
