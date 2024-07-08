@@ -109,7 +109,7 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
                     <th className='p-2 text-left'>Entity</th>
                     {actions.map((action) => <th
                         onClick={() => onColumnClick(action)}
-                        className='cursor-pointer p-2 text-center'>{action}</th>)}
+                        className='select-none cursor-pointer p-2 text-center'>{action}</th>)}
                 </tr>
             </thead>
             <tbody>
@@ -119,7 +119,7 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
                     >
                         <td
                             onClick={() => { onRowClick(privilage) }}
-                            className='p-2 text-left'>{renderName(privilage)}</td>
+                            className='select-none p-2 text-left'>{renderName(privilage)}</td>
                         {
                             privilage.Privilages.map((p) => {
                                 return (
