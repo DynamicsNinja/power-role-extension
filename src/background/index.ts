@@ -94,5 +94,17 @@ chrome.webRequest.onBeforeRequest.addListener(
     { urls: ["*://*.dynamics.com/api/data/v*"] }
 );
 
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status !== 'complete') { return; }
+
+    chrome.storage.local.get('sessionActive', (result) => {
+        let sessionActive = result.sessionActive;
+
+        chrome.action.setBadgeText({ text: sessionActive ? 'REC' : '' });
+        chrome.action.setBadgeBackgroundColor({ color: sessionActive ? '#FF0000' : '#000000' });
+        chrome.action.setBadgeTextColor({ color: '#FFFFFF' });
+    });
+});
+
 
 export { }
