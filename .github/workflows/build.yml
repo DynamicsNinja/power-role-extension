@@ -14,7 +14,7 @@ jobs:
           node-version: "12.x"
       - name: Install dependencies
         run: npm install
-      - name: Update version in manifest.json
+     - name: Update version in manifest.json
         id: update_version
         run: |
           # Read the current version from manifest.json
@@ -33,7 +33,7 @@ jobs:
           echo "New version: $NEW_VERSION"
           
           # Update manifest.json with the new version
-          jq --arg new_version "$NEW_VERSION" '.version = $new_version' manifest.json > manifest.json.tmp && mv manifest.json.tmp manifest.json
+          jq --arg new_version "$NEW_VERSION" '.version = $new_version' public/manifest.json > public/manifest.json.tmp && mv public/manifest.json.tmp public/manifest.json
 
           # Set the new version as output
           echo "::set-output name=new_version::$NEW_VERSION"
