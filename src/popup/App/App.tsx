@@ -11,6 +11,7 @@ import { Settings } from '../../model/Settings';
 import { ShowNames } from '../../enum/ShowNames';
 import Header from '../../components/Header';
 import usePrivileges from '../../hooks/usePrivilages';
+import Footer from '../../components/Footer';
 
 function App() {
   const [sessionActive, setSessionActive] = useState(false);
@@ -128,12 +129,12 @@ function App() {
   useEffect(() => {
     const getTables = async () => {
       let cahcedTables = (await chrome.storage.local.get('tables')).tables as Table[] || [];
-  
+
       let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       let tabId = tabs[0].id || 0;
-  
+
       let message = { action: 'GET_TABLES' };
-  
+
       if (cahcedTables.length === 0) {
         setLoading(true);
         await chrome.tabs.sendMessage(tabId, message);
@@ -141,12 +142,12 @@ function App() {
       } else {
         chrome.tabs.sendMessage(tabId, message);
       }
-  
+
       getBusinessUnits();
       getSessionActive();
       getSettings();
     }
-    
+
     getTables();
   }, []);
 
@@ -224,6 +225,7 @@ function App() {
         </div>
       </div>
 
+      <Footer></Footer>
     </div>
   );
 }
