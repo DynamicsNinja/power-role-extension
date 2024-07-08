@@ -17,26 +17,26 @@ jobs:
       - name: Update version in manifest.json
         id: update_version
         run: |
-        # Read the current version from manifest.json
-        CURRENT_VERSION=$(jq -r '.version' public/manifest.json)
-        
-        # Extract the version prefix (1.1 in 1.1.152)
-        VERSION_PREFIX=$(echo $CURRENT_VERSION | cut -d '.' -f 1-2)
-        
-        # Use GITHUB_RUN_NUMBER as the build number
-        BUILD_NUMBER=${{ github.run_number }}
-        
-        # Create the new version
-        NEW_VERSION="$VERSION_PREFIX.$BUILD_NUMBER"
-        
-        echo "Current version: $CURRENT_VERSION"
-        echo "New version: $NEW_VERSION"
-        
-        # Update manifest.json with the new version
-        jq --arg new_version "$NEW_VERSION" '.version = $new_version' public/manifest.json > public/manifest.json.tmp && mv public/manifest.json.tmp public/manifest.json
+          # Read the current version from manifest.json
+          CURRENT_VERSION=$(jq -r '.version' public/manifest.json)
+          
+          # Extract the version prefix (1.1 in 1.1.152)
+          VERSION_PREFIX=$(echo $CURRENT_VERSION | cut -d '.' -f 1-2)
+          
+          # Use GITHUB_RUN_NUMBER as the build number
+          BUILD_NUMBER=${{ github.run_number }}
+          
+          # Create the new version
+          NEW_VERSION="$VERSION_PREFIX.$BUILD_NUMBER"
+          
+          echo "Current version: $CURRENT_VERSION"
+          echo "New version: $NEW_VERSION"
+          
+          # Update manifest.json with the new version
+          jq --arg new_version "$NEW_VERSION" '.version = $new_version' public/manifest.json > public/manifest.json.tmp && mv public/manifest.json.tmp public/manifest.json
 
-        # Set the new version as output
-        echo "::set-output name=new_version::$NEW_VERSION"
+          # Set the new version as output
+          echo "::set-output name=new_version::$NEW_VERSION"
       - name: Build
         run: npm run build
       - name: Upload build
