@@ -201,6 +201,10 @@ export async function createRole(name: string, buId: string) {
         }
     );
 
+    if (response.status !== 204) {
+        throw new Error('Role creation failed');
+    }
+
     let data = await response.json();
 
     let roleId = data.roleid;

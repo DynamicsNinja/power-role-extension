@@ -12,6 +12,8 @@ import { ShowNames } from '../../enum/ShowNames';
 import Header from '../../components/Header';
 import usePrivileges from '../../hooks/usePrivilages';
 import Footer from '../../components/Footer';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   const [sessionActive, setSessionActive] = useState(false);
@@ -79,8 +81,14 @@ function App() {
     };
 
     setLoading(true);
-    await chrome.tabs.sendMessage(tabId, message);
+    let result = await chrome.tabs.sendMessage(tabId, message);
     setLoading(false);
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success('Role created successfully');
+    }
   }
 
   const updateRole = async (roleId: string, buId: string) => {
@@ -97,8 +105,14 @@ function App() {
     };
 
     setLoading(true);
-    await chrome.tabs.sendMessage(tabId, message);
+    let result = await chrome.tabs.sendMessage(tabId, message);
     setLoading(false);
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success('Role updated successfully');
+    }
   }
 
   const openSaveRoleModal = () => {
@@ -226,6 +240,11 @@ function App() {
       </div>
 
       <Footer></Footer>
+      <ToastContainer
+        position='bottom-right'
+        autoClose={3000}
+        onClick={() => toast.dismiss()}
+      />
     </div>
   );
 }

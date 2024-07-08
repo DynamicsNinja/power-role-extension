@@ -26,8 +26,17 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
                 let privilages = message.privilages as TablePrivileges[];
                 let roleName = message.roleName;
                 let buId = message.buId;
-                await createRoleWithPrivileges(roleName, buId, privilages);
-                sendResponse(true);
+
+                try {
+                    await createRoleWithPrivileges(roleName, buId, privilages);
+                    sendResponse({
+                        error: ""
+                    });
+                } catch (e: any) {
+                    sendResponse({
+                        error: e.message
+                    });
+                }
             })();
 
             return true;
@@ -37,8 +46,18 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
                 let privilages = message.privilages as TablePrivileges[];
                 let roleId = message.roleId;
                 let buId = message.buId;
-                await updateRoleWithPrivileges(roleId, buId, privilages);
                 sendResponse(true);
+
+                try {
+                    await updateRoleWithPrivileges(roleId, buId, privilages);
+                    sendResponse({
+                        error: ""
+                    });
+                } catch (e: any) {
+                    sendResponse({
+                        error: e.message
+                    });
+                }
             })();
 
             return true;
