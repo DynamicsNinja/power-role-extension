@@ -20,6 +20,7 @@ function App() {
   const [filteredPrivilages, setFilteredPrivilages] = useState([] as TablePrivileges[]);
 
   const [businessUnits, setBusinessUnits] = useState([] as BusinessUnit[]);
+  const [solutions, setSolutions] = useState([] as any[]);
 
   const [loading, setLoading] = useState(false);
 
@@ -62,12 +63,25 @@ function App() {
     setBusinessUnits(result);
   }
 
+  const getSolutions = async () => {
+    let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    let tabId = tabs[0].id || 0;
+
+    let message = { action: 'GET_SOLUTIONS' };
+
+    let result = await chrome.tabs.sendMessage(tabId, message);
+
+    console.log(result);
+
+    setSolutions(result);
+  }
+
   const getSessionActive = async () => {
     const result = await chrome.storage.local.get('sessionActive');
     setSessionActive(result.sessionActive);
   }
 
-  const createRole = async (roleName: string, buId: string) => {
+  const createRole = async (roleName: string, buId: string, solutionName: string,) => {
     closeSaveRoleModal();
 
     let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -77,7 +91,8 @@ function App() {
       action: 'CREATE_ROLE',
       privilages: privilages,
       roleName: roleName,
-      buId: buId
+      buId: buId,
+      solutionName: solutionName
     };
 
     setLoading(true);
@@ -158,6 +173,7 @@ function App() {
       }
 
       getBusinessUnits();
+      getSolutions();
       getSessionActive();
       getSettings();
     }
@@ -182,6 +198,7 @@ function App() {
         />}
       {saveRoleModalOpen &&
         <SaveRoleModal
+          solutions={solutions}
           businessUnits={businessUnits}
           onClose={closeSaveRoleModal}
           onCreate={createRole}

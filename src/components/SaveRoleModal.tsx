@@ -5,8 +5,9 @@ import Modal from "./Modal";
 
 export interface ISaveRoleModalProps {
     businessUnits: BusinessUnit[];
+    solutions: any[];
     onClose: () => void;
-    onCreate: (roleName: string, buId: string) => void;
+    onCreate: (roleName: string, buId: string, solutionName: string) => void;
     onUpdate: (roleId: string, buId: string) => void;
 }
 
@@ -14,6 +15,9 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
     const [roleName, setRoleName] = useState<string>("")
     const [businessUnit, setBusinessUnit] = useState<string>("-1")
     const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([])
+
+    const [solutionName, setSolutionName] = useState<string>("")
+    const [solutions, setSolutions] = useState<any[]>([])
     const [roles, setRoles] = useState<Role[]>([])
 
     const [creatingRole, setCreatingRole] = useState<boolean>(true)
@@ -52,15 +56,18 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
         setBusinessUnit(props.businessUnits[0]?.id)
         setBusinessUnits(props.businessUnits)
 
+        setSolutions(props.solutions)
+        setSolutionName(props.solutions[0]?.id)
+
         let buId = props.businessUnits[0]?.id
         getRoles(buId)
-    }, [props.businessUnits])
+    }, [props.businessUnits, props.solutions])
 
     const createOrUpdateRole = () => {
         if (creatingRole) {
             if (!validateCreate()) return
 
-            props.onCreate(roleName, businessUnit)
+            props.onCreate(roleName, businessUnit, solutionName)
         } else {
             if (!selectedRole) return
 
@@ -142,6 +149,26 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
                                 className="border border-gray-200 p-2 rounded-md"
                                 value={roleName}
                             />
+                        </div>
+                        <div
+                            className="flex flex-col space-y-2"
+                        >
+                            <label
+                                className="font-bold"
+                                htmlFor="">
+                                Solution
+                            </label>
+                            <select name="" id=""
+                                className="border border-gray-200 p-2 rounded-md"
+                                onChange={(e) => setSolutionName(e.target.value)}
+                                value={solutionName}
+                            >
+                                {
+                                    solutions.map(solution => {
+                                        return <option key={solution.id} value={solution.id}>{solution.name}</option>
+                                    })
+                                }
+                            </select>
                         </div>
                         <div
                             className="flex flex-col space-y-2"
