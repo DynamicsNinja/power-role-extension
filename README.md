@@ -18,6 +18,7 @@ Power Roles is an Edge extension that helps administrators manage user roles mor
 ## Installation
 
  [Edge Add-ons Store](https://microsoftedge.microsoft.com/addons/detail/power-roles/hbjkmplgempdbiffddnneofdfedmmbpo)
+ [Chrome Add-ons Store](https://chromewebstore.google.com/detail/power-roles/gmdlnpamnbnadajemnoacbnfmfilnkai)
 
 ## Usage
 
