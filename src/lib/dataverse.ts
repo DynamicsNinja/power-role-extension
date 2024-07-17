@@ -201,7 +201,7 @@ export async function createRole(name: string, buId: string) {
         }
     );
 
-    if (response.status !== 204) {
+    if (response.status !== 201) {
         throw new Error('Role creation failed');
     }
 
