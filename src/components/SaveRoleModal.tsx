@@ -51,7 +51,7 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
     }
 
     useEffect(() => {
-        if (props.businessUnits.length === 0) return
+        if (props.businessUnits.length === 0 || props.solutions.length === 0) return
 
         setBusinessUnit(props.businessUnits[0]?.id)
         setBusinessUnits(props.businessUnits)

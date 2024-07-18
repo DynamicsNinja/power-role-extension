@@ -230,7 +230,7 @@ function App() {
             </div>
             {
               <button
-                disabled={businessUnits.length === 0}
+                disabled={businessUnits.length === 0 || solutions.length === 0}
                 onClick={openSaveRoleModal}
                 className={
                   `${!sessionActive && privilages?.length !== 0 ? "visible" : "invisible"}
