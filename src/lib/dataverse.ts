@@ -109,7 +109,7 @@ export async function createRoleWithPrivileges(name: string, buId: string, table
     let roleId = await createRole(name, buId);
     await addPrivilegesToRole(roleId, buId, privilages);
 
-    return privilages;
+    return roleId;
 }
 
 export async function updateRoleWithPrivileges(roleId: string, buId: string, tablePrivileges: TablePrivileges[]) {
@@ -207,7 +207,7 @@ export async function createRole(name: string, buId: string) {
 
     let data = await response.json();
 
-    let roleId = data.roleid;
+    let roleId = data.roleid as string;
 
     return roleId;
 }
@@ -265,4 +265,56 @@ export async function getRoles(buId: string): Promise<Role[]> {
     });
 
     return roles;
+}
+
+export async function getSolutions() {
+    let select = "friendlyname,uniquename";
+    let filter = "ismanaged eq false and isvisible eq true";
+    let orderby = "friendlyname asc";
+
+    let response = await fetch(
+        `${baseUrl}/api/data/v9.2/solutions?$select=${select}&$filter=${filter}&$orderby=${orderby}`,
+        {
+            method: "GET",
+            headers: {
+                "OData-MaxVersion": "4.0",
+                "OData-Version": "4.0",
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+                "Prefer": "odata.include-annotations=*"
+            }
+        }
+    );
+
+    let data = await response.json();
+
+    let solutions = data.value.map((solution: any) => {
+        return {
+            id: solution.uniquename,
+            name: solution.friendlyname
+        };
+    });
+
+    return solutions;
+}
+
+export async function addRoleToSolution(roleId: string, solutionName: string) {
+    await fetch(
+        `${baseUrl}/api/data/v9.2/AddSolutionComponent`,
+        {
+            method: "POST",
+            headers: {
+                "OData-MaxVersion": "4.0",
+                "OData-Version": "4.0",
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+            },
+            body: JSON.stringify({
+                "ComponentId": roleId,
+                "ComponentType": 20,
+                "SolutionUniqueName": solutionName,
+                "AddRequiredComponents": false
+            })
+        }
+    );
 }

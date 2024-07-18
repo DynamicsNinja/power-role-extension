@@ -1,4 +1,4 @@
-import { getRoles, getAllTables, createRoleWithPrivileges, getBusinessUnits, updateRoleWithPrivileges } from "../lib/dataverse";
+import { getRoles, getAllTables, createRoleWithPrivileges, getBusinessUnits, updateRoleWithPrivileges, getSolutions, addRoleToSolution } from "../lib/dataverse";
 import { TablePrivileges } from "../model/TablePrivileges";
 
 console.log('[content] loaded ')
@@ -26,9 +26,11 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
                 let privilages = message.privilages as TablePrivileges[];
                 let roleName = message.roleName;
                 let buId = message.buId;
+                let solutionName = message.solutionName;
 
                 try {
-                    await createRoleWithPrivileges(roleName, buId, privilages);
+                    let roleId = await createRoleWithPrivileges(roleName, buId, privilages);
+                    await addRoleToSolution(roleId, solutionName);
                     sendResponse({
                         error: ""
                     });
@@ -73,6 +75,12 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
             (async () => {
                 let buId = message.buId;
                 const result = await getRoles(buId);
+                sendResponse(result);
+            })();
+            return true;
+        case 'GET_SOLUTIONS':
+            (async () => {
+                const result = await getSolutions();
                 sendResponse(result);
             })();
             return true;
