@@ -269,9 +269,11 @@ export async function getRoles(buId: string): Promise<Role[]> {
 
 export async function getSolutions() {
     let select = "friendlyname,uniquename";
+    let filter = "ismanaged eq false and isvisible eq true";
+    let orderby = "friendlyname asc";
 
     let response = await fetch(
-        `${baseUrl}/api/data/v9.2/solutions?$select=${select}&$filter=ismanaged eq false&$orderby=friendlyname asc`,
+        `${baseUrl}/api/data/v9.2/solutions?$select=${select}&$filter=${filter}&$orderby=${orderby}`,
         {
             method: "GET",
             headers: {
@@ -306,11 +308,10 @@ export async function addRoleToSolution(roleId: string, solutionName: string) {
                 "OData-Version": "4.0",
                 "Content-Type": "application/json; charset=utf-8",
                 "Accept": "application/json",
-                "Prefer": "return=representation"
             },
             body: JSON.stringify({
                 "ComponentId": roleId,
-                "ComponentType": 10,
+                "ComponentType": 20,
                 "SolutionUniqueName": solutionName,
                 "AddRequiredComponents": false
             })
