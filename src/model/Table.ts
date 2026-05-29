@@ -4,4 +4,5 @@ export interface Table{
     CollectionLogicalName: string;
     EntitySetName: string;
     IsUserOwned: boolean;
+    ObjectTypeCode: number;
 }

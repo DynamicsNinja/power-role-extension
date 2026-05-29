@@ -148,13 +148,14 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
     return (
         <table className='w-full min-w-[620px] table-fixed text-sm'>
             <thead>
-                <tr className='sticky top-0 z-10 bg-surface-2 text-fg-muted'>
-                    <th className='px-3 py-2 text-left font-semibold'>Entity</th>
+                <tr className='sticky top-0 z-10 border-b border-border bg-surface text-fg-muted'>
+                    <th className='px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide'>Entity</th>
                     {actions.map((action) => (
                         <th
                             key={action.name}
                             onClick={() => onColumnClick(action.name)}
-                            className='w-14 cursor-pointer select-none px-1 py-2 text-center text-xs font-semibold leading-tight transition-colors hover:text-fg'>
+                            title={`Toggle ${action.label} for all tables`}
+                            className='w-14 cursor-pointer select-none px-1 py-2.5 text-center text-[11px] font-semibold leading-tight transition-colors hover:text-fg'>
                             {action.label}
                         </th>
                     ))}
@@ -168,11 +169,12 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
                     >
                         <td
                             onClick={() => { onRowClick(privilage) }}
-                            className='cursor-pointer select-none break-words px-3 py-2 text-left'>
+                            title='Toggle all privileges for this table'
+                            className='cursor-pointer select-none break-words px-3 py-2.5 text-left font-medium'>
                             {renderName(privilage)}
                         </td>
                         {privilage.Privilages.map((p) => (
-                            <td key={p.name} className='px-1 py-2 text-center'>
+                            <td key={p.name} className='px-1 py-2.5 text-center'>
                                 <div className='flex justify-center'>
                                     <button
                                         type='button'

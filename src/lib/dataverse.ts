@@ -1,6 +1,7 @@
 import { PrivilegeDepth } from "../enum/PrivilegeDepth";
 import { BusinessUnit } from "../model/BusinessUnit";
 import { Role } from "../model/Role";
+import { RolePrivilegeDiff } from "../model/RolePrivilegeDiff";
 import { Table } from "../model/Table";
 import { TablePrivileges } from "../model/TablePrivileges";
 
@@ -35,7 +36,7 @@ export async function getAllTables(): Promise<Table[]> {
     // All tables are fetched (not just user-owned) so any lookup target can be
     // resolved for Append / Append To. The recorder limits plain CRUD recording
     // to user-owned tables via the IsUserOwned flag.
-    let select = "LogicalCollectionName,DisplayCollectionName,LogicalName,EntitySetName,OwnershipType";
+    let select = "LogicalCollectionName,DisplayCollectionName,LogicalName,EntitySetName,OwnershipType,ObjectTypeCode";
 
     let response = await dvFetch(
         `${baseUrl}/api/data/v9.2/EntityDefinitions?$select=${select}`,
@@ -58,7 +59,8 @@ export async function getAllTables(): Promise<Table[]> {
                 DisplayName: table.DisplayCollectionName?.LocalizedLabels?.[0]?.Label || table.LogicalCollectionName || table.EntitySetName,
                 CollectionLogicalName: table.LogicalCollectionName,
                 EntitySetName: table.EntitySetName,
-                IsUserOwned: table.OwnershipType === 'UserOwned'
+                IsUserOwned: table.OwnershipType === 'UserOwned',
+                ObjectTypeCode: table.ObjectTypeCode
             } as Table;
         });
 
@@ -78,7 +80,7 @@ async function getPrivilegesByNames(tablePrivileges: TablePrivileges[]) {
     let filter = `(Microsoft.Dynamics.CRM.In(PropertyName='name',PropertyValues=[${privilegesCsv}]))`;
 
     let response = await dvFetch(
-        `${baseUrl}/api/data/v9.2/privileges?$select=privilegeid,name&$filter=${filter}`,
+        `${baseUrl}/api/data/v9.2/privileges?$select=privilegeid,name,canbebasic,canbelocal,canbedeep,canbeglobal&$filter=${filter}`,
         {
             method: "GET",
             headers: {
@@ -104,7 +106,11 @@ async function getPrivilegesByNames(tablePrivileges: TablePrivileges[]) {
                 privilages.push({
                     id: privilege.privilegeid,
                     name: privilege.name,
-                    depth: p.depth
+                    depth: p.depth,
+                    canbebasic: privilege.canbebasic,
+                    canbelocal: privilege.canbelocal,
+                    canbedeep: privilege.canbedeep,
+                    canbeglobal: privilege.canbeglobal
                 });
             }
         });
@@ -119,20 +125,108 @@ function maskToDepthIndex(mask: number): number {
     return Math.log2(mask);
 }
 
-export async function createRoleWithPrivileges(name: string, buId: string, tablePrivileges: TablePrivileges[]) {
+// Each privilege caps the depth it can be granted at (canbebasic/local/deep/global).
+// ReplacePrivilegesRole is all-or-nothing: a single over-depth privilege (e.g.
+// prvReadUserEntityUISettings, which can't be Global) makes the whole call 400.
+// Clamp the requested depth to the highest allowed depth that doesn't exceed it,
+// falling back to the lowest allowed depth if the request is below all of them.
+function clampDepthIndex(requestedIndex: number, privilege: any): number {
+    const allowed: number[] = [];
+    if (privilege.canbebasic) { allowed.push(0); }
+    if (privilege.canbelocal) { allowed.push(1); }
+    if (privilege.canbedeep) { allowed.push(2); }
+    if (privilege.canbeglobal) { allowed.push(3); }
+
+    if (allowed.length === 0) {
+        return requestedIndex;
+    }
+
+    const atOrBelow = allowed.filter(i => i <= requestedIndex);
+    return atOrBelow.length > 0 ? Math.max(...atOrBelow) : Math.min(...allowed);
+}
+
+export async function setRolePrivileges(roleId: string, buId: string, tablePrivileges: TablePrivileges[]) {
     let privilages = await getPrivilegesByNames(tablePrivileges);
 
     privilages = privilages.map(p => {
         return {
             id: p.id,
-            depth: maskToDepthIndex(p.depth)
+            depth: clampDepthIndex(maskToDepthIndex(p.depth), p)
         }
     })
 
-    let roleId = await createRole(name, buId);
     await addPrivilegesToRole(roleId, buId, privilages);
+}
+
+export async function createRoleWithPrivileges(name: string, buId: string, tablePrivileges: TablePrivileges[]) {
+    let roleId = await createRole(name, buId);
+    await setRolePrivileges(roleId, buId, tablePrivileges);
 
     return roleId;
+}
+
+export async function getUserBusinessUnit(userId: string): Promise<string> {
+    let response = await dvFetch(
+        `${baseUrl}/api/data/v9.2/systemusers(${userId})?$select=_businessunitid_value`,
+        {
+            method: "GET",
+            headers: {
+                ...defaultHeaders,
+                "Prefer": "odata.include-annotations=*"
+            }
+        }
+    );
+
+    let data = await response.json();
+    return data["_businessunitid_value"];
+}
+
+export async function assignRoleToUser(userId: string, roleId: string) {
+    await dvFetch(
+        `${baseUrl}/api/data/v9.2/systemusers(${userId})/systemuserroles_association/$ref`,
+        {
+            method: "POST",
+            headers: defaultHeaders,
+            body: JSON.stringify({ "@odata.id": `${baseUrl}/api/data/v9.2/roles(${roleId})` })
+        }
+    );
+}
+
+export async function unassignRoleFromUser(userId: string, roleId: string) {
+    await dvFetch(
+        `${baseUrl}/api/data/v9.2/systemusers(${userId})/systemuserroles_association(${roleId})/$ref`,
+        {
+            method: "DELETE",
+            headers: defaultHeaders
+        }
+    );
+}
+
+export async function deleteRole(roleId: string) {
+    await dvFetch(
+        `${baseUrl}/api/data/v9.2/roles(${roleId})`,
+        {
+            method: "DELETE",
+            headers: defaultHeaders
+        }
+    );
+}
+
+export async function createTempRole(userId: string): Promise<{ roleId: string; buId: string }> {
+    const buId = await getUserBusinessUnit(userId);
+    const name = `PowerRoles Temp ${new Date().toISOString()}`;
+    const roleId = await createRole(name, buId);
+    await assignRoleToUser(userId, roleId);
+    return { roleId, buId };
+}
+
+export async function deleteTempRole(userId: string, roleId: string) {
+    try {
+        await unassignRoleFromUser(userId, roleId);
+    } catch {
+        // role may already be unassigned; continue to delete
+    }
+    await deleteRole(roleId);
 }
 
 export async function updateRoleWithPrivileges(roleId: string, buId: string, tablePrivileges: TablePrivileges[]) {
@@ -168,11 +262,73 @@ export async function updateRoleWithPrivileges(roleId: string, buId: string, tab
     newPrivileges.forEach(privilege => {
         privilegesById.set(privilege.id, {
             id: privilege.id,
-            depth: maskToDepthIndex(privilege.depth)
+            depth: clampDepthIndex(maskToDepthIndex(privilege.depth), privilege)
         });
     });
 
     await addPrivilegesToRole(roleId, buId, Array.from(privilegesById.values()));
+}
+
+// Computes what updateRoleWithPrivileges would change on a role, without writing
+// anything: each recorded privilege is either added, has its depth changed, or is
+// already present at the same (clamped) depth.
+export async function diffRoleWithPrivileges(roleId: string, tablePrivileges: TablePrivileges[]): Promise<RolePrivilegeDiff[]> {
+    const resolved = await getPrivilegesByNames(tablePrivileges);
+    const metaByName = new Map<string, any>();
+    resolved.forEach(p => metaByName.set(p.name.toLowerCase(), p));
+
+    let response = await dvFetch(
+        `${baseUrl}/api/data/v9.2/roleprivilegescollection?$select=privilegeid,privilegedepthmask&$filter=(roleid eq ${roleId})`,
+        {
+            method: "GET",
+            headers: {
+                ...defaultHeaders,
+                "Prefer": "return=representation"
+            }
+        }
+    );
+
+    let existing = await response.json();
+    const currentMaskById = new Map<string, number>();
+    existing.value.forEach((ep: any) => currentMaskById.set(ep.privilegeid, ep.privilegedepthmask));
+
+    const diff: RolePrivilegeDiff[] = [];
+
+    tablePrivileges.forEach(tp => {
+        tp.Privilages.forEach(p => {
+            if (p.depth === PrivilegeDepth.None) { return; }
+
+            const meta = metaByName.get(`prv${p.name}${tp.LogicalName}`.toLowerCase());
+            if (!meta) { return; }
+
+            const finalIndex = clampDepthIndex(maskToDepthIndex(p.depth), meta);
+            const finalMask = 1 << finalIndex;
+            const currentMask = currentMaskById.get(meta.id);
+
+            let status: RolePrivilegeDiff['status'];
+            let fromDepth = -1;
+            if (currentMask === undefined) {
+                status = 'add';
+            } else if (currentMask === finalMask) {
+                status = 'unchanged';
+                fromDepth = maskToDepthIndex(currentMask);
+            } else {
+                status = 'change';
+                fromDepth = maskToDepthIndex(currentMask);
+            }
+
+            diff.push({
+                entity: tp.CollectionName || tp.LogicalName,
+                logicalName: tp.LogicalName,
+                action: p.name,
+                status,
+                fromDepth,
+                toDepth: finalIndex
+            });
+        });
+    });
+
+    return diff;
 }
 
 async function addPrivilegesToRole(roleId: string, buId: string, privileges: any[]) {
@@ -243,6 +399,43 @@ export async function getBusinessUnits(): Promise<BusinessUnit[]> {
     });
 
     return businessUnits;
+}
+
+export async function getUsers(): Promise<{ id: string; name: string }[]> {
+    const select = "fullname,systemuserid";
+    // Only real interactive users: enabled, Read-Write access mode, and not an
+    // application (S2S) user. Drops system/non-interactive/app accounts.
+    const filter = "isdisabled eq false and accessmode eq 0 and applicationid eq null";
+    const orderby = "fullname asc";
+
+    const users: { id: string; name: string }[] = [];
+
+    // Follow @odata.nextLink so orgs with more than one page (5000) of users are
+    // fully covered rather than truncated to the first page.
+    let url: string | null =
+        `${baseUrl}/api/data/v9.2/systemusers?$select=${select}&$filter=${filter}&$orderby=${orderby}`;
+
+    while (url) {
+        const response: Response = await dvFetch(url, {
+            method: "GET",
+            headers: {
+                ...defaultHeaders,
+                "Prefer": "odata.include-annotations=*"
+            }
+        });
+
+        const data: any = await response.json();
+
+        for (const u of data.value) {
+            if (u.fullname) {
+                users.push({ id: u.systemuserid, name: u.fullname });
+            }
+        }
+
+        url = data["@odata.nextLink"] || null;
+    }
+
+    return users;
 }
 
 export async function getRoles(buId: string): Promise<Role[]> {

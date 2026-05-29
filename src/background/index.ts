@@ -276,6 +276,82 @@ function applyPrivilege(privilages: TablePrivileges[], table: Table, privilege: 
     }
 }
 
+const ACCESS_RIGHT_PRIVILEGE: { [key: string]: PrivilegeName } = {
+    Create: PrivilegeName.Create,
+    Read: PrivilegeName.Read,
+    Write: PrivilegeName.Write,
+    Delete: PrivilegeName.Delete,
+    Append: PrivilegeName.Append,
+    AppendTo: PrivilegeName.AppendTo,
+    Assign: PrivilegeName.Assign,
+};
+
+interface ErrorPrivilege {
+    privilege: PrivilegeName;
+    logicalName?: string;
+    objectTypeCode?: number;
+}
+
+// Parses a Dataverse "privilege denied" error into the privileges it names.
+// Two shapes occur: prv<Privilege><EntityName>, and the SecLib::AccessCheckEx
+// form with "AccessRights: <X>Access" + "ObjectTypeCode: <n>".
+function privilegesFromError(body: string | null): ErrorPrivilege[] {
+    if (!body) {
+        return [];
+    }
+
+    let message = '';
+    try {
+        message = JSON.parse(body)?.error?.message || '';
+    } catch {
+        message = body;
+    }
+    if (!message) {
+        return [];
+    }
+
+    const found: ErrorPrivilege[] = [];
+
+    const prvRe = /prv(Create|Read|Write|Delete|AppendTo|Append|Assign|Share)([A-Za-z_][\w]*)/g;
+    let m: RegExpExecArray | null;
+    while ((m = prvRe.exec(message)) !== null) {
+        const privilege = ACCESS_RIGHT_PRIVILEGE[m[1]];
+        if (privilege) {
+            found.push({ privilege, logicalName: m[2].toLowerCase() });
+        }
+    }
+
+    const access = message.match(/AccessRights:\s*([A-Za-z]+)Access/i);
+    const otc = message.match(/(?:ObjectTypeCode|OTC)[:=]\s*(\d+)/i);
+    if (access && otc) {
+        const privilege = ACCESS_RIGHT_PRIVILEGE[access[1]];
+        if (privilege) {
+            found.push({ privilege, objectTypeCode: parseInt(otc[1], 10) });
+        }
+    }
+
+    return found;
+}
+
+async function commit(resolved: Array<{ table: Table; privilege: PrivilegeName }>): Promise<void> {
+    if (resolved.length === 0) {
+        return;
+    }
+
+    console.log('[PowerRoles] recorded', resolved.map(r => `${r.table.CollectionLogicalName}:${r.privilege}`));
+
+    await enqueueWrite(async () => {
+        const stored = await chrome.storage.local.get('privilages');
+        const privilages: TablePrivileges[] = stored.privilages || [];
+
+        for (const u of resolved) {
+            applyPrivilege(privilages, u.table, u.privilege);
+        }
+
+        await chrome.storage.local.set({ privilages });
+    });
+}
+
 async function recordRequest(req: CapturedRequest): Promise<void> {
     const { sessionActive } = await chrome.storage.local.get('sessionActive');
     if (!sessionActive) {
@@ -296,14 +372,14 @@ async function recordRequest(req: CapturedRequest): Promise<void> {
         tableList.find(t => t.EntitySetName === collection || t.CollectionLogicalName === collection);
 
     const resolved = updates
-        .map(u => ({ ...u, table: findTable(u.entity) }))
-        .filter((u): u is PrivilegeUpdate & { table: Table } => {
+        .map(u => ({ table: findTable(u.entity), privilege: u.privilege }))
+        .filter((u): u is { table: Table; privilege: PrivilegeName } => {
             if (!u.table) {
                 return false;
             }
             // Plain CRUD is limited to user-owned tables to avoid flooding the
-            // recording with system-table reads; Append / Append To can target
-            // any resolvable table (e.g. systemuser, org-owned tables).
+            // recording with system-table reads; Append / Append To / Assign can
+            // target any resolvable table (e.g. systemuser, org-owned tables).
             const isCrud = u.privilege === PrivilegeName.Create
                 || u.privilege === PrivilegeName.Read
                 || u.privilege === PrivilegeName.Write
@@ -311,30 +387,60 @@ async function recordRequest(req: CapturedRequest): Promise<void> {
             return isCrud ? u.table.IsUserOwned : true;
         });
 
-    if (resolved.length === 0) {
+    await commit(resolved);
+}
+
+// Privileges discovered from server error responses (e.g. a synchronous plugin,
+// real-time workflow, or custom API that the impersonated user lacks rights for).
+// Recognises a privilege-denied error so we don't mis-parse successful $batch
+// bodies (which may legitimately contain prv* strings, e.g. privilege queries).
+const PRIVILEGE_ERROR_SIGNATURE = /is missing prv|PrivilegeDenied|UserNotAssignedRoles|0x80040220|0x80042f09/i;
+
+async function recordResponse(resp: { method: string; url: string; status: number; body: string | null }): Promise<void> {
+    const { sessionActive } = await chrome.storage.local.get('sessionActive');
+    if (!sessionActive) {
+        return;
+    }
+    if (!resp || !resp.body || !PRIVILEGE_ERROR_SIGNATURE.test(resp.body)) {
         return;
     }
 
-    console.log('[PowerRoles] recorded', resolved.map(r => `${r.table.CollectionLogicalName}:${r.privilege}`));
+    const found = privilegesFromError(resp.body);
+    if (found.length === 0) {
+        return;
+    }
 
-    await enqueueWrite(async () => {
-        const stored = await chrome.storage.local.get('privilages');
-        const privilages: TablePrivileges[] = stored.privilages || [];
+    const { tables } = await chrome.storage.local.get('tables');
+    const tableList = (tables as Table[]) || [];
 
-        for (const u of resolved) {
-            applyPrivilege(privilages, u.table, u.privilege);
+    const resolved: Array<{ table: Table; privilege: PrivilegeName }> = [];
+    for (const f of found) {
+        let table: Table | undefined;
+        if (f.logicalName) {
+            table = tableList.find(t => t.LogicalName === f.logicalName);
         }
+        if (!table && f.objectTypeCode !== undefined) {
+            table = tableList.find(t => t.ObjectTypeCode === f.objectTypeCode);
+        }
+        if (table) {
+            resolved.push({ table, privilege: f.privilege });
+        }
+    }
 
-        await chrome.storage.local.set({ privilages });
-    });
+    await commit(resolved);
 }
 
 // Clicking the toolbar icon opens the docked side panel.
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => { });
 
 chrome.runtime.onMessage.addListener((message) => {
-    if (message && message.action === 'RECORD_REQUEST') {
+    if (!message) {
+        return;
+    }
+    if (message.action === 'RECORD_REQUEST') {
         void recordRequest({ method: message.method, url: message.url, body: message.body });
+    } else if (message.action === 'RECORD_RESPONSE') {
+        void recordResponse({ method: message.method, url: message.url, status: message.status, body: message.body });
     }
 });
 

@@ -80,8 +80,16 @@
     @apply text-sm font-semibold text-fg;
   }
 
+  .card {
+    @apply rounded-lg border border-border bg-surface;
+  }
+
+  .badge {
+    @apply inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-fg-muted;
+  }
+
   .dialog {
-    @apply w-full rounded-lg border border-border bg-surface p-4 shadow-xl;
+    @apply mx-auto w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-2xl;
   }
 }
 
