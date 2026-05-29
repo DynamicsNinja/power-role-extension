@@ -6,7 +6,7 @@ import EntityPermissionsTable from '../../components/EntityPermissionsTable';
 import UserCombobox from '../../components/UserCombobox';
 import { Table } from '../../model/Table';
 import { RolePrivilegeDiff } from '../../model/RolePrivilegeDiff';
-import LodingModal from '../../components/LodingModal';
+import LoadingModal from '../../components/LoadingModal';
 import SettingsModal from '../../components/SettingsModal';
 import { Settings } from '../../model/Settings';
 import { ShowNames } from '../../enum/ShowNames';
@@ -273,7 +273,7 @@ function App() {
           onUpdate={updateRole}
           onRequestDiff={getRoleDiff}
         ></SaveRoleModal>}
-      {(isLoading || loading) && <LodingModal message='Loading...'></LodingModal>}
+      {(isLoading || loading) && <LoadingModal message='Loading...'></LoadingModal>}
 
       <main className='flex flex-1 flex-col gap-4 overflow-hidden p-4'>
         <section className='card flex flex-col gap-3 p-3'>

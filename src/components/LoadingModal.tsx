@@ -2,7 +2,7 @@ export interface ILoadingModalProps {
     message: string;
 }
 
-export default function LodingModal(props: ILoadingModalProps) {
+export default function LoadingModal(props: ILoadingModalProps) {
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"

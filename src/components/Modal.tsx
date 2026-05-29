@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-
 interface ModalProps {
     title: string;
     children: React.ReactNode;
@@ -7,14 +5,6 @@ interface ModalProps {
 }
 
 export default function Modal(props: ModalProps) {
-    const [title, setTitle] = useState<string>(props.title)
-    const [children, setChildren] = useState<React.ReactNode>(props.children)
-
-    useEffect(() => {
-        setTitle(props.title)
-        setChildren(props.children)
-    }, [props])
-
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3"
@@ -22,7 +12,7 @@ export default function Modal(props: ModalProps) {
             <div className="dialog">
                 <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-base font-semibold text-fg">
-                        {title}
+                        {props.title}
                     </h2>
                     <button
                         type="button"
@@ -47,7 +37,7 @@ export default function Modal(props: ModalProps) {
                     </button>
                 </div>
                 <div>
-                    {children}
+                    {props.children}
                 </div>
             </div>
         </div>

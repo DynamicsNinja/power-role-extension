@@ -169,7 +169,6 @@ const syncTempRole = async () => {
     await chrome.storage.local.set({ tempRoleSyncing: true });
     try {
         await setRolePrivileges(state.tempRoleId, state.tempRoleBuId, state.privilages || []);
-        console.log('[PowerRoles] temp role synced:', (state.privilages || []).length, 'tables');
     } catch (e) {
         console.warn('[PowerRoles] temp role sync failed', e);
     } finally {

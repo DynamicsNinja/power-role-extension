@@ -338,8 +338,6 @@ async function commit(resolved: Array<{ table: Table; privilege: PrivilegeName }
         return;
     }
 
-    console.log('[PowerRoles] recorded', resolved.map(r => `${r.table.CollectionLogicalName}:${r.privilege}`));
-
     await enqueueWrite(async () => {
         const stored = await chrome.storage.local.get('privilages');
         const privilages: TablePrivileges[] = stored.privilages || [];

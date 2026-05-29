@@ -15,6 +15,11 @@ const defaultHeaders = {
     "Accept": "application/json",
 };
 
+// The live-build temp role uses a fixed id so a role left behind by a panel
+// that was closed without Stop is reused instead of piling up duplicates.
+const TEMP_ROLE_ID = "e1d9c7a3-5b2f-4e8a-9c1d-7f6a3b2c1d0e";
+const TEMP_ROLE_NAME = "PowerRoles Temp (auto, safe to delete)";
+
 async function dvFetch(url: string, init: RequestInit): Promise<Response> {
     const response = await fetch(url, init);
 
@@ -212,12 +217,80 @@ export async function deleteRole(roleId: string) {
     );
 }
 
+// Returns the temp role's business unit if it currently exists, otherwise null.
+async function getTempRoleBusinessUnit(): Promise<string | null> {
+    const response = await fetch(
+        `${baseUrl}/api/data/v9.2/roles(${TEMP_ROLE_ID})?$select=_businessunitid_value`,
+        {
+            method: "GET",
+            headers: { ...defaultHeaders, "Prefer": "odata.include-annotations=*" }
+        }
+    );
+
+    if (response.status === 404) {
+        return null;
+    }
+    if (!response.ok) {
+        let message = `Dataverse request failed (${response.status})`;
+        try {
+            const body = await response.json();
+            message = body?.error?.message || message;
+        } catch {
+            // keep status-based message
+        }
+        throw new Error(message);
+    }
+
+    const data = await response.json();
+    return data["_businessunitid_value"];
+}
+
+async function isRoleAssignedToUser(userId: string, roleId: string): Promise<boolean> {
+    const response = await dvFetch(
+        `${baseUrl}/api/data/v9.2/systemusers(${userId})/systemuserroles_association?$select=roleid&$filter=roleid eq ${roleId}`,
+        {
+            method: "GET",
+            headers: { ...defaultHeaders, "Prefer": "odata.include-annotations=*" }
+        }
+    );
+
+    const data = await response.json();
+    return Array.isArray(data.value) && data.value.length > 0;
+}
+
 export async function createTempRole(userId: string): Promise<{ roleId: string; buId: string }> {
-    const buId = await getUserBusinessUnit(userId);
-    const name = `PowerRoles Temp ${new Date().toISOString()}`;
-    const roleId = await createRole(name, buId);
-    await assignRoleToUser(userId, roleId);
-    return { roleId, buId };
+    const userBuId = await getUserBusinessUnit(userId);
+    let existingBuId = await getTempRoleBusinessUnit();
+
+    // A role can't change business unit, so a leftover temp role in another BU is
+    // replaced; otherwise the existing one is reused as-is.
+    if (existingBuId && existingBuId !== userBuId) {
+        await deleteRole(TEMP_ROLE_ID);
+        existingBuId = null;
+    }
+
+    const buId = existingBuId ?? userBuId;
+
+    if (!existingBuId) {
+        await dvFetch(
+            `${baseUrl}/api/data/v9.2/roles`,
+            {
+                method: "POST",
+                headers: defaultHeaders,
+                body: JSON.stringify({
+                    roleid: TEMP_ROLE_ID,
+                    name: TEMP_ROLE_NAME,
+                    "businessunitid@odata.bind": `/businessunits(${buId})`
+                })
+            }
+        );
+    }
+
+    if (!await isRoleAssignedToUser(userId, TEMP_ROLE_ID)) {
+        await assignRoleToUser(userId, TEMP_ROLE_ID);
+    }
+
+    return { roleId: TEMP_ROLE_ID, buId };
 }
 
 export async function deleteTempRole(userId: string, roleId: string) {
