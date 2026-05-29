@@ -1,13 +1,104 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --surface: 255 255 255;
+    --surface-2: 247 247 248;
+    --surface-3: 240 240 242;
+    --border: 225 223 221;
+    --fg: 32 31 30;
+    --fg-muted: 96 94 92;
+    --accent: 116 39 116;
+    --accent-hover: 94 31 94;
+    --accent-fg: 255 255 255;
+    --danger: 209 52 56;
+    --danger-hover: 168 0 0;
+    --success: 16 124 16;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: 41 40 39;
+      --surface-2: 32 31 30;
+      --surface-3: 59 58 57;
+      --border: 72 70 68;
+      --fg: 243 242 241;
+      --fg-muted: 200 198 196;
+      --accent: 178 102 178;
+      --accent-hover: 199 126 199;
+      --accent-fg: 255 255 255;
+      --danger: 244 113 116;
+      --danger-hover: 209 52 56;
+      --success: 84 176 84;
+    }
+  }
+
+  body {
+    @apply bg-surface-2 text-fg font-sans;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-accent-fg hover:bg-accent-hover;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger text-white hover:bg-danger-hover;
+  }
+
+  .btn-ghost {
+    @apply btn border border-border bg-surface text-fg hover:bg-surface-3;
+  }
+
+  .icon-btn {
+    @apply inline-flex items-center justify-center rounded p-1.5 text-fg-muted transition-colors hover:bg-surface-3 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60;
+  }
+
+  .input {
+    @apply w-full rounded border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+
+  .select {
+    @apply w-full rounded border border-border bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+
+  .field-label {
+    @apply text-sm font-semibold text-fg;
+  }
+
+  .dialog {
+    @apply w-full rounded-lg border border-border bg-surface p-4 shadow-xl;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--fg-muted));
 }

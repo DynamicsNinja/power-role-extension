@@ -7,19 +7,42 @@ import { TablePrivileges } from "../model/TablePrivileges";
 // eslint-disable-next-line no-restricted-globals
 let baseUrl = parent.location.origin;
 
-export async function getAllTables(): Promise<Table[]> {
-    let select = "LogicalCollectionName,DisplayCollectionName,LogicalName";
-    let filter = "OwnershipType eq 'UserOwned'";
+const defaultHeaders = {
+    "OData-MaxVersion": "4.0",
+    "OData-Version": "4.0",
+    "Content-Type": "application/json; charset=utf-8",
+    "Accept": "application/json",
+};
 
-    let response = await fetch(
-        `${baseUrl}/api/data/v9.2/EntityDefinitions?$select=${select}&$filter=${filter}`,
+async function dvFetch(url: string, init: RequestInit): Promise<Response> {
+    const response = await fetch(url, init);
+
+    if (!response.ok) {
+        let message = `Dataverse request failed (${response.status})`;
+        try {
+            const body = await response.json();
+            message = body?.error?.message || message;
+        } catch {
+            // response had no JSON body; keep the status-based message
+        }
+        throw new Error(message);
+    }
+
+    return response;
+}
+
+export async function getAllTables(): Promise<Table[]> {
+    // All tables are fetched (not just user-owned) so any lookup target can be
+    // resolved for Append / Append To. The recorder limits plain CRUD recording
+    // to user-owned tables via the IsUserOwned flag.
+    let select = "LogicalCollectionName,DisplayCollectionName,LogicalName,EntitySetName,OwnershipType";
+
+    let response = await dvFetch(
+        `${baseUrl}/api/data/v9.2/EntityDefinitions?$select=${select}`,
         {
             method: "GET",
             headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
+                ...defaultHeaders,
                 "Prefer": "odata.include-annotations=*"
             }
         }
@@ -27,14 +50,17 @@ export async function getAllTables(): Promise<Table[]> {
 
     let data = await response.json();
 
-
-    let tables = data.value.map((table: any) => {
-        return {
-            LogicalName: table.LogicalName,
-            DisplayName: table.DisplayCollectionName.LocalizedLabels[0].Label,
-            CollectionLogicalName: table.LogicalCollectionName
-        } as Table;
-    });
+    let tables: Table[] = data.value
+        .filter((table: any) => table.EntitySetName || table.LogicalCollectionName)
+        .map((table: any) => {
+            return {
+                LogicalName: table.LogicalName,
+                DisplayName: table.DisplayCollectionName?.LocalizedLabels?.[0]?.Label || table.LogicalCollectionName || table.EntitySetName,
+                CollectionLogicalName: table.LogicalCollectionName,
+                EntitySetName: table.EntitySetName,
+                IsUserOwned: table.OwnershipType === 'UserOwned'
+            } as Table;
+        });
 
     return tables;
 }
@@ -51,23 +77,18 @@ async function getPrivilegesByNames(tablePrivileges: TablePrivileges[]) {
     let privilegesCsv = privilegeNames.map(p => `'${p}'`).join(',');
     let filter = `(Microsoft.Dynamics.CRM.In(PropertyName='name',PropertyValues=[${privilegesCsv}]))`;
 
-    let response = await fetch(
+    let response = await dvFetch(
         `${baseUrl}/api/data/v9.2/privileges?$select=privilegeid,name&$filter=${filter}`,
         {
             method: "GET",
             headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
+                ...defaultHeaders,
                 "Prefer": "return=representation"
             }
         }
     );
 
     let data = await response.json();
-
-    console.log(data);
 
     let privilages: any[] = [];
 
@@ -89,9 +110,13 @@ async function getPrivilegesByNames(tablePrivileges: TablePrivileges[]) {
         });
     });
 
-    console.log(privilages);
-
     return privilages;
+}
+
+// Dataverse ReplacePrivilegesRole expects Depth as the enum index
+// (Basic=0, Local=1, Deep=2, Global=3), while privilege depth masks are 1/2/4/8.
+function maskToDepthIndex(mask: number): number {
+    return Math.log2(mask);
 }
 
 export async function createRoleWithPrivileges(name: string, buId: string, tablePrivileges: TablePrivileges[]) {
@@ -100,11 +125,9 @@ export async function createRoleWithPrivileges(name: string, buId: string, table
     privilages = privilages.map(p => {
         return {
             id: p.id,
-            depth: Math.log2(p.depth)
+            depth: maskToDepthIndex(p.depth)
         }
     })
-
-    console.log(privilages);
 
     let roleId = await createRole(name, buId);
     await addPrivilegesToRole(roleId, buId, privilages);
@@ -118,15 +141,12 @@ export async function updateRoleWithPrivileges(roleId: string, buId: string, tab
     let select = "privilegeid,roleid,privilegedepthmask";
     let filter = `(roleid eq ${roleId})`;
 
-    let response = await fetch(
+    let response = await dvFetch(
         `${baseUrl}/api/data/v9.2/roleprivilegescollection?$select=${select}&$filter=${filter}`,
         {
             method: "GET",
             headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
+                ...defaultHeaders,
                 "Prefer": "return=representation"
             }
         }
@@ -134,37 +154,34 @@ export async function updateRoleWithPrivileges(roleId: string, buId: string, tab
 
     let existingPrivileges = await response.json();
 
-    let allTablePrivileges = existingPrivileges.value.map((tp: any) => {
-        return {
-            id: tp.privilegeid,
-            depth: tp.privilegedepthmask
-        }
+    // Start from the role's current privileges (converted to depth indexes),
+    // then apply the recorded privileges on top so depths shown in the UI win.
+    let privilegesById = new Map<string, { id: string; depth: number }>();
+
+    existingPrivileges.value.forEach((ep: any) => {
+        privilegesById.set(ep.privilegeid, {
+            id: ep.privilegeid,
+            depth: maskToDepthIndex(ep.privilegedepthmask)
+        });
     });
 
     newPrivileges.forEach(privilege => {
-        let existingPrivilege = existingPrivileges.value.find((ep: any) => ep.privilegeid === privilege.id);
-
-        if (!existingPrivilege) {
-            allTablePrivileges.push({
-                id: privilege.id,
-                depth: Math.log2(privilege.depth)
-            });
-        }
+        privilegesById.set(privilege.id, {
+            id: privilege.id,
+            depth: maskToDepthIndex(privilege.depth)
+        });
     });
 
-    await addPrivilegesToRole(roleId, buId, allTablePrivileges);
+    await addPrivilegesToRole(roleId, buId, Array.from(privilegesById.values()));
 }
 
 async function addPrivilegesToRole(roleId: string, buId: string, privileges: any[]) {
-    await fetch(
+    await dvFetch(
         `${baseUrl}/api/data/v9.0/roles(${roleId})/Microsoft.Dynamics.CRM.ReplacePrivilegesRole`,
         {
             method: "POST",
             headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
+                ...defaultHeaders,
                 "Prefer": "odata.include-annotations=*"
             },
             body: JSON.stringify({
@@ -182,28 +199,20 @@ async function addPrivilegesToRole(roleId: string, buId: string, privileges: any
 }
 
 export async function createRole(name: string, buId: string) {
-    let response = await fetch(
+    let response = await dvFetch(
         `${baseUrl}/api/data/v9.2/roles`,
         {
             method: "POST",
             headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
+                ...defaultHeaders,
                 "Prefer": "return=representation"
             },
             body: JSON.stringify({
                 name: name,
                 "businessunitid@odata.bind": `/businessunits(${buId})`,
-
             })
         }
     );
-
-    if (response.status !== 201) {
-        throw new Error('Role creation failed');
-    }
 
     let data = await response.json();
 
@@ -213,15 +222,12 @@ export async function createRole(name: string, buId: string) {
 }
 
 export async function getBusinessUnits(): Promise<BusinessUnit[]> {
-    let response = await fetch(
+    let response = await dvFetch(
         `${baseUrl}/api/data/v9.2/businessunits?$select=name,businessunitid`,
         {
             method: "GET",
             headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
+                ...defaultHeaders,
                 "Prefer": "odata.include-annotations=*"
             }
         }
@@ -240,15 +246,12 @@ export async function getBusinessUnits(): Promise<BusinessUnit[]> {
 }
 
 export async function getRoles(buId: string): Promise<Role[]> {
-    let response = await fetch(
+    let response = await dvFetch(
         `${baseUrl}/api/data/v9.2/roles?$select=name,roleid&$filter=(_businessunitid_value eq ${buId})&$orderby=name asc`,
         {
             method: "GET",
             headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
+                ...defaultHeaders,
                 "Prefer": "odata.include-annotations=*"
             }
         }
@@ -261,7 +264,6 @@ export async function getRoles(buId: string): Promise<Role[]> {
             id: role.roleid,
             name: role.name
         } as Role;
-
     });
 
     return roles;
@@ -272,15 +274,12 @@ export async function getSolutions() {
     let filter = "ismanaged eq false and isvisible eq true";
     let orderby = "friendlyname asc";
 
-    let response = await fetch(
+    let response = await dvFetch(
         `${baseUrl}/api/data/v9.2/solutions?$select=${select}&$filter=${filter}&$orderby=${orderby}`,
         {
             method: "GET",
             headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
+                ...defaultHeaders,
                 "Prefer": "odata.include-annotations=*"
             }
         }
@@ -299,16 +298,11 @@ export async function getSolutions() {
 }
 
 export async function addRoleToSolution(roleId: string, solutionName: string) {
-    await fetch(
+    await dvFetch(
         `${baseUrl}/api/data/v9.2/AddSolutionComponent`,
         {
             method: "POST",
-            headers: {
-                "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0",
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
-            },
+            headers: defaultHeaders,
             body: JSON.stringify({
                 "ComponentId": roleId,
                 "ComponentType": 20,

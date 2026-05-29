@@ -1,8 +1,6 @@
 import { getRoles, getAllTables, createRoleWithPrivileges, getBusinessUnits, updateRoleWithPrivileges, getSolutions, addRoleToSolution } from "../lib/dataverse";
 import { TablePrivileges } from "../model/TablePrivileges";
 
-console.log('[content] loaded ')
-
 const getTables = async () => {
     let tables = await getAllTables();
 
@@ -12,12 +10,14 @@ const getTables = async () => {
 }
 
 const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) => {
-    debugger
     switch (message.action) {
         case 'GET_TABLES':
             (async () => {
-                const result = await getTables();
-                sendResponse(result);
+                try {
+                    sendResponse(await getTables());
+                } catch {
+                    sendResponse([]);
+                }
             })();
 
             return true;
@@ -48,7 +48,6 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
                 let privilages = message.privilages as TablePrivileges[];
                 let roleId = message.roleId;
                 let buId = message.buId;
-                sendResponse(true);
 
                 try {
                     await updateRoleWithPrivileges(roleId, buId, privilages);
@@ -66,27 +65,64 @@ const handleMessage = (message: any, sender: chrome.runtime.MessageSender, sendR
 
         case 'GET_BUSINESS_UNITS':
             (async () => {
-                const result = await getBusinessUnits();
-                sendResponse(result);
+                try {
+                    sendResponse(await getBusinessUnits());
+                } catch {
+                    sendResponse([]);
+                }
             })();
 
             return true;
         case 'GET_ROLES':
             (async () => {
-                let buId = message.buId;
-                const result = await getRoles(buId);
-                sendResponse(result);
+                try {
+                    sendResponse(await getRoles(message.buId));
+                } catch {
+                    sendResponse([]);
+                }
             })();
             return true;
         case 'GET_SOLUTIONS':
             (async () => {
-                const result = await getSolutions();
-                sendResponse(result);
+                try {
+                    sendResponse(await getSolutions());
+                } catch {
+                    sendResponse([]);
+                }
             })();
             return true;
     }
 }
 
 chrome.runtime.onMessage.addListener(handleMessage)
+
+// Relay Dataverse calls captured by the injected (MAIN-world) interceptor to the
+// background recorder, but only while a recording session is active.
+let recordingActive = false;
+
+chrome.storage.local.get('sessionActive', (result) => {
+    recordingActive = !!result.sessionActive;
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.sessionActive) {
+        recordingActive = !!changes.sessionActive.newValue;
+    }
+});
+
+window.addEventListener('message', (event: MessageEvent) => {
+    if (event.source !== window) { return; }
+
+    const data = event.data;
+    if (!data || data.__powerRoles !== true) { return; }
+    if (!recordingActive) { return; }
+
+    chrome.runtime.sendMessage({
+        action: 'RECORD_REQUEST',
+        method: data.method,
+        url: data.url,
+        body: data.body
+    });
+});
 
 export { }

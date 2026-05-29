@@ -27,25 +27,36 @@ Power Roles is an Edge extension that helps administrators manage user roles mor
    
    - Navigate to your Dynamics 365 environment.
 
-2. **Start Recording:**
-   
-   - Click on the extension icon in the Edge toolbar to start recording user actions.
+2. **Open the extension:**
 
-3. **Perform Actions:**
-   
+   - Click the Power Roles icon in the Edge/Chrome toolbar to open the popup.
+
+3. **Start Recording:**
+
+   - Click the **Start** button in the popup. A red `REC` badge appears on the extension icon.
+
+4. **Perform Actions:**
+
    - Carry out the actions you want to record within the Dynamics 365 app.
 
-4. **Stop Recording:**
-   
-   - Click on the extension icon again to stop recording.
+5. **Stop Recording:**
 
-5. **View Privileges:**
-   
-   - The extension will display the necessary privileges required for the recorded actions.
+   - Open the popup again and click **Stop**.
 
-6. **Save or Update Role:**
-   
-   - Choose to save the privileges as a new role or update an existing role in Dynamics 365.
+6. **View Privileges:**
+
+   - The popup displays the privileges required for the recorded actions. Click a row, column header, or individual cell to cycle the privilege depth (None → User → Business Unit → Parent/Child → Organization).
+
+7. **Save or Update Role:**
+
+   - Click **Save as Role** to create a new role (optionally adding it to a solution) or update an existing role in Dynamics 365.
+
+## Known Limitations
+
+- **Create / Read / Write / Delete are limited to user-owned tables** to keep recordings clean (system-table reads during form loads are ignored). Append / Append To / Assign can target any referenced table, including system tables such as `systemuser` and organization-owned tables.
+- **Append / Append To are best-effort.** They are detected from lookups set inline on create/update (`...@odata.bind` in the body) and from explicit associations (`$ref` requests), including operations inside a `$batch`. The record carrying the lookup gets **Append** and the referenced record gets **Append To**. Deeply nested (deep-insert) binds may not be picked up — review before saving.
+- **Assign is detected from the owner lookup.** Setting `ownerid` on create/update records **Assign** on that record (owner assignment is governed by Assign, not Append To). **Share** is not detected.
+- **Method-to-privilege mapping is heuristic.** `GET`→Read, `POST`→Create (collection writes only), `PATCH`→Write, `DELETE`→Delete; `@odata.bind` / `$ref` → Append + Append To; `ownerid@odata.bind` → Assign. Always review the generated privileges before saving a role.
 
 ## Contributing
 

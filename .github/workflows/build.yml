@@ -1,4 +1,4 @@
-name: "Buld Extension"
+name: "Build Extension"
 on:
   push:
     branches:
@@ -7,41 +7,41 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
-          node-version: "12.x"
+          node-version: "20.x"
+          cache: "npm"
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Update version in manifest.json
         id: update_version
         run: |
           # Read the current version from manifest.json
           CURRENT_VERSION=$(jq -r '.version' public/manifest.json)
-          
-          # Extract the version prefix (1.1 in 1.1.152)
+
+          # Extract the version prefix (1.2 in 1.2.152)
           VERSION_PREFIX=$(echo $CURRENT_VERSION | cut -d '.' -f 1-2)
-          
+
           # Use GITHUB_RUN_NUMBER as the build number
           BUILD_NUMBER=${{ github.run_number }}
-          
+
           # Create the new version
           NEW_VERSION="$VERSION_PREFIX.$BUILD_NUMBER"
-          
+
           echo "Current version: $CURRENT_VERSION"
           echo "New version: $NEW_VERSION"
-          
+
           # Update manifest.json with the new version
           jq --arg new_version "$NEW_VERSION" '.version = $new_version' public/manifest.json > public/manifest.json.tmp && mv public/manifest.json.tmp public/manifest.json
 
           # Set the new version as output
-          echo "::set-output name=new_version::$NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
       - name: Build
         run: npm run build
       - name: Upload build
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: build
           path: build
-

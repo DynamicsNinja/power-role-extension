@@ -8,9 +8,19 @@ export interface TablePrivilegesProps {
     names: ShowNames;
 }
 
+const cloneAll = (rows: TablePrivileges[]): TablePrivileges[] =>
+    rows.map(row => ({ ...row, Privilages: row.Privilages.map(p => ({ ...p })) }));
+
+// All depths equal -> keep it; mixed -> treat as Organization so a click cycles to None.
+const commonDepth = (depths: PrivilegeDepth[]): PrivilegeDepth => {
+    if (depths.length === 0) { return PrivilegeDepth.None; }
+    const first = depths[0];
+    return depths.every(d => d === first) ? first : PrivilegeDepth.Organization;
+};
+
 export default function EntityPermissionsTable(props: TablePrivilegesProps) {
     const [tablePrivileges, setTablePrivileges] = useState([] as TablePrivileges[]);
-    const [showNames, setShowNames] = useState<ShowNames>(props.names || false);
+    const [showNames, setShowNames] = useState<ShowNames>(props.names);
 
     const renderName = (privilage: TablePrivileges) => {
         switch (showNames) {
@@ -59,102 +69,128 @@ export default function EntityPermissionsTable(props: TablePrivilegesProps) {
         }
     }
 
+    const persist = async (next: TablePrivileges[]) => {
+        setTablePrivileges(next);
+        await chrome.storage.local.set({ privilages: next });
+    }
+
     const onRowClick = async (privilage: TablePrivileges) => {
-        let initialPrivilege = privilage.Privilages.map(p => p.depth).reduce((a, b) => a === b ? a : PrivilegeDepth.Organization);
-        let newPrivilegeDepth = cycleDepthsOnClick(initialPrivilege);
+        const next = cloneAll(tablePrivileges);
+        const target = next.find(r => r.CollectionLogicalName === privilage.CollectionLogicalName);
+        if (!target) { return; }
 
-        privilage.Privilages.forEach(p => {
-            p.depth = newPrivilegeDepth;
-        });
+        const newPrivilegeDepth = cycleDepthsOnClick(commonDepth(target.Privilages.map(p => p.depth)));
+        target.Privilages.forEach(p => { p.depth = newPrivilegeDepth; });
 
-        await chrome.storage.local.set({ privilages: tablePrivileges });
-        setTablePrivileges([...tablePrivileges]);
+        await persist(next);
     }
 
     const onColumnClick = async (action: string) => {
-        // initial privilege should be Organization or value that is set on ALL rows
-        let initialPrivilege = tablePrivileges.map(p => p.Privilages.filter(pr => pr.name === action)[0].depth).reduce((a, b) => a === b ? a : PrivilegeDepth.Organization);
-        let newPrivilegeDepth = cycleDepthsOnClick(initialPrivilege);
+        const next = cloneAll(tablePrivileges);
 
-        tablePrivileges.forEach(tp => {
-            tp.Privilages.forEach(p => {
-                console.log(p.name, action);
+        const columnDepths = next
+            .map(r => r.Privilages.find(p => p.name === action)?.depth)
+            .filter((d): d is PrivilegeDepth => d !== undefined);
 
-                if (p.name === action) {
-                    p.depth = newPrivilegeDepth
-                }
-            });
+        const newPrivilegeDepth = cycleDepthsOnClick(commonDepth(columnDepths));
+
+        next.forEach(r => {
+            const p = r.Privilages.find(pp => pp.name === action);
+            if (p) { p.depth = newPrivilegeDepth; }
         });
 
-        await chrome.storage.local.set({ privilages: tablePrivileges });
-        setTablePrivileges([...tablePrivileges]);
+        await persist(next);
     }
 
-    const actions = ['Create', 'Read', 'Write', 'Delete'];
+    const onCellClick = async (privilage: TablePrivileges, privilegeName: string) => {
+        const next = cloneAll(tablePrivileges);
+        const target = next.find(r => r.CollectionLogicalName === privilage.CollectionLogicalName);
+        const p = target?.Privilages.find(pp => pp.name === privilegeName);
+        if (!p) { return; }
+
+        p.depth = cycleDepthsOnClick(p.depth);
+
+        await persist(next);
+    }
+
+    const actions: { name: string; label: string }[] = [
+        { name: 'Create', label: 'Create' },
+        { name: 'Read', label: 'Read' },
+        { name: 'Write', label: 'Write' },
+        { name: 'Delete', label: 'Delete' },
+        { name: 'Append', label: 'Append' },
+        { name: 'AppendTo', label: 'Append To' },
+        { name: 'Assign', label: 'Assign' },
+    ];
 
     useEffect(() => {
         setTablePrivileges(props.tablePrivileges);
     }, [props.tablePrivileges]);
 
     useEffect(() => {
-        setShowNames(props.names || false);
+        setShowNames(props.names);
     }, [props.names]);
 
+    if (tablePrivileges.length === 0) {
+        return (
+            <div className='flex h-full flex-col items-center justify-center gap-2 p-8 text-center text-fg-muted'>
+                <svg xmlns='http://www.w3.org/2000/svg' className='h-10 w-10 opacity-60'
+                    fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={1.5}>
+                    <path strokeLinecap='round' strokeLinejoin='round'
+                        d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
+                </svg>
+                <div className='text-sm font-semibold text-fg'>No actions recorded yet</div>
+                <div className='text-xs'>Start recording, then perform actions in Dynamics 365.</div>
+            </div>
+        )
+    }
+
     return (
-        <table
-            className='w-full p-2'
-        >
+        <table className='w-full min-w-[620px] table-fixed text-sm'>
             <thead>
-                <tr className='sticky top-0 bg-gray-200 z-10'>
-                    <th className='p-2 text-left'>Entity</th>
-                    {actions.map((action) => <th
-                        onClick={() => onColumnClick(action)}
-                        className='select-none cursor-pointer p-2 text-center'>{action}</th>)}
+                <tr className='sticky top-0 z-10 bg-surface-2 text-fg-muted'>
+                    <th className='px-3 py-2 text-left font-semibold'>Entity</th>
+                    {actions.map((action) => (
+                        <th
+                            key={action.name}
+                            onClick={() => onColumnClick(action.name)}
+                            className='w-14 cursor-pointer select-none px-1 py-2 text-center text-xs font-semibold leading-tight transition-colors hover:text-fg'>
+                            {action.label}
+                        </th>
+                    ))}
                 </tr>
             </thead>
             <tbody>
-                {tablePrivileges && tablePrivileges.map((privilage: TablePrivileges) => (
+                {tablePrivileges.map((privilage: TablePrivileges) => (
                     <tr
-                        className='border-b-2 border-gray-200 hover:bg-gray-300 cursor-pointer'
+                        key={privilage.CollectionLogicalName}
+                        className='border-t border-border transition-colors hover:bg-surface-3'
                     >
                         <td
                             onClick={() => { onRowClick(privilage) }}
-                            className='select-none p-2 text-left'>{renderName(privilage)}</td>
-                        {
-                            privilage.Privilages.map((p) => {
-                                return (
-                                    <td className='p-2 text-center'>
-                                        <div
-                                            className='flex justify-center'
-                                        >
-                                            <div
-                                                onClick={async () => {
-                                                    let newPrivilegeDepth = cycleDepthsOnClick(p.depth);
-                                                    p.depth = newPrivilegeDepth;
-
-                                                    await chrome.storage.local.set({ privilages: tablePrivileges });
-                                                    setTablePrivileges([...tablePrivileges]);
-                                                }}
-                                                title={depthTooltip(p.depth)}
-
-                                            >
-                                                <img
-                                                    className='w-4 h-4'
-                                                    src={`/img/depths/${PrivilegeDepth[p.depth].toString()}.svg`} alt="" />
-                                            </div>
-                                        </div>
-                                    </td>
-                                )
-                            })
-                        }
+                            className='cursor-pointer select-none break-words px-3 py-2 text-left'>
+                            {renderName(privilage)}
+                        </td>
+                        {privilage.Privilages.map((p) => (
+                            <td key={p.name} className='px-1 py-2 text-center'>
+                                <div className='flex justify-center'>
+                                    <button
+                                        type='button'
+                                        onClick={() => onCellClick(privilage, p.name)}
+                                        title={depthTooltip(p.depth)}
+                                        aria-label={`${p.name}: ${depthTooltip(p.depth)}`}
+                                        className='rounded p-1 hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60'
+                                    >
+                                        <img
+                                            className='h-4 w-4'
+                                            src={`/img/depths/${PrivilegeDepth[p.depth].toString()}.svg`}
+                                            alt={depthTooltip(p.depth)} />
+                                    </button>
+                                </div>
+                            </td>
+                        ))}
                     </tr>
                 ))}
-                {
-                    tablePrivileges.length === 0 && <tr>
-                        <td colSpan={5}
-                            className='text-center p-4 text-gray-400'>No data</td>
-                    </tr>
-                }
             </tbody>
         </table>
     )

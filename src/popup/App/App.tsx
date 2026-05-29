@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import './App.css';
 import { TablePrivileges } from '../../model/TablePrivileges';
 import SaveRoleModal from '../../components/SaveRoleModal';
 import { BusinessUnit } from '../../model/BusinessUnit';
@@ -31,6 +30,21 @@ function App() {
 
   const { privilages, isLoading } = usePrivileges()
 
+  const canSaveRole = businessUnits.length > 0 && solutions.length > 0;
+  const showSaveButton = !sessionActive && (privilages?.length ?? 0) > 0;
+
+  const getActiveDataverseTabId = async (): Promise<number | null> => {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
+
+    if (!tab?.id || !tab.url?.includes('.dynamics.com')) {
+      toast.error('Open a Dynamics 365 tab to use Power Roles.');
+      return null;
+    }
+
+    return tab.id;
+  }
+
   const startStopSession = async () => {
     await chrome.storage.local.set({ sessionActive: !sessionActive });
     await chrome.action.setBadgeText({ text: sessionActive ? '' : 'REC' });
@@ -50,29 +64,13 @@ function App() {
     setSettings(result.settings || { showNames: ShowNames.DisplayNames });
   }
 
-  const getBusinessUnits = async () => {
-    let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    let tabId = tabs[0].id || 0;
-
-    let message = { action: 'GET_BUSINESS_UNITS' };
-
-    let result = await chrome.tabs.sendMessage(tabId, message);
-
-    console.log(result);
-
+  const getBusinessUnits = async (tabId: number) => {
+    const result = await chrome.tabs.sendMessage(tabId, { action: 'GET_BUSINESS_UNITS' });
     setBusinessUnits(result);
   }
 
-  const getSolutions = async () => {
-    let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    let tabId = tabs[0].id || 0;
-
-    let message = { action: 'GET_SOLUTIONS' };
-
-    let result = await chrome.tabs.sendMessage(tabId, message);
-
-    console.log(result);
-
+  const getSolutions = async (tabId: number) => {
+    const result = await chrome.tabs.sendMessage(tabId, { action: 'GET_SOLUTIONS' });
     setSolutions(result);
   }
 
@@ -81,11 +79,11 @@ function App() {
     setSessionActive(result.sessionActive);
   }
 
-  const createRole = async (roleName: string, buId: string, solutionName: string,) => {
+  const createRole = async (roleName: string, buId: string, solutionName: string) => {
     closeSaveRoleModal();
 
-    let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    let tabId = tabs[0].id || 0;
+    const tabId = await getActiveDataverseTabId();
+    if (tabId === null) return;
 
     let message = {
       action: 'CREATE_ROLE',
@@ -109,8 +107,8 @@ function App() {
   const updateRole = async (roleId: string, buId: string) => {
     closeSaveRoleModal();
 
-    let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    let tabId = tabs[0].id || 0;
+    const tabId = await getActiveDataverseTabId();
+    if (tabId === null) return;
 
     let message = {
       action: 'UPDATE_ROLE',
@@ -152,33 +150,31 @@ function App() {
     ) || [];
 
     setFilteredPrivilages(filtered);
-
   }
 
   useEffect(() => {
-    const getTables = async () => {
-      let cahcedTables = (await chrome.storage.local.get('tables')).tables as Table[] || [];
-
-      let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      let tabId = tabs[0].id || 0;
-
-      let message = { action: 'GET_TABLES' };
-
-      if (cahcedTables.length === 0) {
-        setLoading(true);
-        await chrome.tabs.sendMessage(tabId, message);
-        setLoading(false);
-      } else {
-        chrome.tabs.sendMessage(tabId, message);
-      }
-
-      getBusinessUnits();
-      getSolutions();
+    const init = async () => {
       getSessionActive();
       getSettings();
+
+      const tabId = await getActiveDataverseTabId();
+      if (tabId === null) return;
+
+      let cachedTables = (await chrome.storage.local.get('tables')).tables as Table[] || [];
+
+      if (cachedTables.length === 0) {
+        setLoading(true);
+        await chrome.tabs.sendMessage(tabId, { action: 'GET_TABLES' });
+        setLoading(false);
+      } else {
+        chrome.tabs.sendMessage(tabId, { action: 'GET_TABLES' });
+      }
+
+      getBusinessUnits(tabId);
+      getSolutions(tabId);
     }
 
-    getTables();
+    init();
   }, []);
 
   useEffect(() => {
@@ -186,7 +182,7 @@ function App() {
   }, [privilages]);
 
   return (
-    <div className="flex flex-col w-[500px] h-auto">
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-surface-2 text-fg">
       {settingsModalOpen &&
         <SettingsModal
           settings={settings}
@@ -208,53 +204,61 @@ function App() {
 
       <Header onSettingsClick={() => setSettingsModalOpen(true)}></Header>
 
-      <div className='p-4'>
-        <div
-          className='flex items-center space-x-4 mb-2'
-        >
-          <button
-            onClick={startStopSession}
-            className='bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded w-16'
-          >
-            {sessionActive ? 'Stop' : 'Start'}
-          </button>
-          {sessionActive && <div className={`text-xl font-bold animate-blink`}>Recording</div>}
+      <main className='flex flex-1 flex-col gap-3 overflow-hidden p-4'>
+        <div className='flex items-center gap-3'>
+          {!sessionActive ? (
+            <button onClick={startStopSession} className='btn-primary'>
+              <span className='h-2.5 w-2.5 rounded-full bg-current' />
+              Start recording
+            </button>
+          ) : (
+            <>
+              <button onClick={startStopSession} className='btn-danger'>
+                <span className='h-2.5 w-2.5 rounded-sm bg-current' />
+                Stop
+              </button>
+              <span className='flex items-center gap-2 text-sm font-semibold text-danger'>
+                <span className='h-2.5 w-2.5 rounded-full bg-danger animate-pulsedot' />
+                Recording
+              </span>
+            </>
+          )}
         </div>
 
-        <div>
-          <div
-            className='flex justify-between mb-2'
-          >
-            <div
-              className='text-xl font-bold'>Privileges ({privilages?.length})
-            </div>
-            {
-              <button
-                disabled={businessUnits.length === 0 || solutions.length === 0}
-                onClick={openSaveRoleModal}
-                className={
-                  `${!sessionActive && privilages?.length !== 0 ? "visible" : "invisible"}
-                   bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50`
-                }>
-                Save as Role
-              </button>
-            }
-          </div>
-          <div>
-            <input
-              onChange={handleSearchPrivilages}
-              className='w-full p-2 mb-2 rounded shadow-md border border-gray-200'
-              type="text" placeholder='search...' />
-          </div>
-          <div
-            className='h-auto max-h-96 overflow-y-auto bg-gray-100 rounded shadow-md min-h-52'
-          >
-            <EntityPermissionsTable
-              names={settings.showNames}
-              tablePrivileges={filteredPrivilages} />
-          </div>
+        <div className='flex items-center justify-between'>
+          <h2 className='text-base font-semibold'>
+            Privileges <span className='text-fg-muted'>· {privilages?.length ?? 0}</span>
+          </h2>
+          {showSaveButton &&
+            <button
+              disabled={!canSaveRole}
+              onClick={openSaveRoleModal}
+              className='btn-primary'
+            >
+              Save role
+            </button>}
         </div>
-      </div>
+
+        <div className='relative'>
+          <svg
+            xmlns='http://www.w3.org/2000/svg'
+            className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted'
+            fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
+            <path strokeLinecap='round' strokeLinejoin='round' d='M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z' />
+          </svg>
+          <input
+            onChange={handleSearchPrivilages}
+            className='input pl-9'
+            type='text'
+            placeholder='Search tables…' />
+        </div>
+
+        <div className='card flex-1 overflow-auto'>
+          <EntityPermissionsTable
+            names={settings.showNames}
+            tablePrivileges={filteredPrivilages} />
+        </div>
+      </main>
 
       <Footer></Footer>
       <ToastContainer

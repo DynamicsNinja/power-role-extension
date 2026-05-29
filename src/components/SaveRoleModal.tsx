@@ -75,211 +75,128 @@ export default function SaveRoleModal(props: ISaveRoleModalProps) {
         }
     }
 
+    const segmentBase = "flex-1 rounded px-3 py-1.5 text-sm font-semibold transition-colors";
+
     return (
         <Modal
             onClose={props.onClose}
             title={"Save Role"}>
-            <div
-                className="flex flex-col space-y-2"
-            >
-                <div
-                    className="flex flex-col space-y-2"
-                >
-                    <label
-                        htmlFor="role"
-                        className="font-bold"
-                    >
-                        Action
-                    </label>
-                    <div
-                        className="flex space-x-2"
-                    >
-
-                        <input
-                            onChange={() => setCreatingRole(true)}
-                            type="radio"
-                            id="create"
-                            name="action"
-                            value="create"
-                            checked={creatingRole}
-                        />
-                        <label
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                    <span className="field-label">Action</span>
+                    <div className="flex gap-1 rounded border border-border bg-surface-2 p-1">
+                        <button
+                            type="button"
                             onClick={() => setCreatingRole(true)}
-
-                            htmlFor="create"
-                            className="ml-2"
+                            className={`${segmentBase} ${creatingRole ? "bg-accent text-accent-fg" : "text-fg-muted hover:text-fg"}`}
                         >
-                            Create New
-                        </label>
-
-
-                        <input
-                            onChange={() => setCreatingRole(false)}
-                            type="radio"
-                            id="update"
-                            name="action"
-                            value="update"
-                            checked={!creatingRole}
-                        />
-                        <label
+                            Create new
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => setCreatingRole(false)}
-                            htmlFor="update"
-                            className="ml-2"
+                            className={`${segmentBase} ${!creatingRole ? "bg-accent text-accent-fg" : "text-fg-muted hover:text-fg"}`}
                         >
-                            Update Existing
-                        </label>
+                            Update existing
+                        </button>
                     </div>
                 </div>
-                {
-                    creatingRole &&
+
+                {creatingRole &&
                     <>
-                        <div
-                            className="flex flex-col space-y-2"
-                        >
-                            <label
-                                htmlFor="role"
-                                className="font-bold"
-                            >
-                                Role Name
-                            </label>
+                        <div className="flex flex-col gap-2">
+                            <label htmlFor="role-name" className="field-label">Role name</label>
                             <input
                                 onChange={(e) => setRoleName(e.target.value)}
                                 type="text"
-                                id="role"
-                                className="border border-gray-200 p-2 rounded-md"
+                                id="role-name"
+                                className="input"
                                 value={roleName}
                             />
                         </div>
-                        <div
-                            className="flex flex-col space-y-2"
-                        >
-                            <label
-                                className="font-bold"
-                                htmlFor="">
-                                Solution
-                            </label>
-                            <select name="" id=""
-                                className="border border-gray-200 p-2 rounded-md"
+                        <div className="flex flex-col gap-2">
+                            <label htmlFor="solution" className="field-label">Solution</label>
+                            <select
+                                id="solution"
+                                className="select"
                                 onChange={(e) => setSolutionName(e.target.value)}
                                 value={solutionName}
                             >
-                                {
-                                    solutions.map(solution => {
-                                        return <option key={solution.id} value={solution.id}>{solution.name}</option>
-                                    })
-                                }
+                                {solutions.map(solution => (
+                                    <option key={solution.id} value={solution.id}>{solution.name}</option>
+                                ))}
                             </select>
                         </div>
-                        <div
-                            className="flex flex-col space-y-2"
-                        >
-                            <label
-                                htmlFor="role"
-                                className="font-bold"
-                            >
-                                Bussiness Unit
-                            </label>
+                        <div className="flex flex-col gap-2">
+                            <label htmlFor="business-unit-create" className="field-label">Business unit</label>
                             <select
-                                className="border border-gray-200 p-2 rounded-md"
+                                id="business-unit-create"
+                                className="select"
+                                value={businessUnit}
                                 onChange={(e) => setBusinessUnit(e.target.value)}
                             >
-                                {
-                                    businessUnits.map(bu => {
-                                        return <option key={bu.id} value={bu.id}>{bu.name}</option>
-                                    })
-                                }
+                                {businessUnits.map(bu => (
+                                    <option key={bu.id} value={bu.id}>{bu.name}</option>
+                                ))}
                             </select>
                         </div>
                     </>
                 }
 
-                {
-                    !creatingRole &&
+                {!creatingRole &&
                     <>
-                        <div
-                            className="flex flex-col space-y-2"
-                        >
-                            <label
-                                htmlFor="role"
-                                className="font-bold"
-                            >
-                                Bussiness Unit
-                            </label>
+                        <div className="flex flex-col gap-2">
+                            <label htmlFor="business-unit-update" className="field-label">Business unit</label>
                             <select
-                                className="border border-gray-200 p-2 rounded-md"
+                                id="business-unit-update"
+                                className="select"
+                                value={businessUnit}
                                 onChange={async (e) => {
                                     let buId = e.target.value
                                     setBusinessUnit(buId);
-
                                     getRoles(buId)
                                 }}
                             >
-                                {
-                                    businessUnits.map(bu => {
-                                        return <option key={bu.id} value={bu.id}>{bu.name}</option>
-                                    })
-                                }
+                                {businessUnits.map(bu => (
+                                    <option key={bu.id} value={bu.id}>{bu.name}</option>
+                                ))}
                             </select>
                         </div>
-                        <div
-                            className="flex flex-col space-y-2"
-                        >
-                            <label
-                                htmlFor="role"
-                                className="font-bold"
-                            >
-                                Role Name
-                            </label>
+                        <div className="flex flex-col gap-2">
+                            <label htmlFor="existing-role" className="field-label">Role</label>
                             <select
-                                className="border border-gray-200 p-2 rounded-md"
+                                id="existing-role"
+                                className="select"
+                                defaultValue="-1"
                                 onChange={(e) => {
                                     let roleId = e.target.value
                                     let role = roles.find(r => r.id === roleId) || null
                                     setSelectedRole(role)
                                 }}
                             >
-                                <option disabled value="-1">Select Role</option>
-                                {
-                                    roles && roles.map(role => {
-                                        return <option key={role.id} value={role.id}>{role.name}</option>
-                                    })
-                                }
+                                <option disabled value="-1">Select role</option>
+                                {roles && roles.map(role => (
+                                    <option key={role.id} value={role.id}>{role.name}</option>
+                                ))}
                             </select>
                         </div>
                     </>
-
                 }
 
-                <div
-                    className="flex justify-end space-x-2"
-                >
-                    <div
-                        className="w-full flex items-center"
-                    >
-                        {
-                            errorMessage &&
-                            <div
-                                className="text-red-500 text-sm"
-                            >
-                                {errorMessage}
-                            </div>
-                        }
+                <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm text-danger">
+                        {errorMessage}
                     </div>
-                    <button
-                        onClick={createOrUpdateRole}
-                        className="w-14 bg-blue-500 text-white p-2 rounded-md"
-                    >
-                        {creatingRole ? 'Create' : 'Update'}
-                    </button>
-                    <button
-                        onClick={props.onClose}
-                        className="w-14 bg-red-500 text-white p-2 rounded-md"
-                    >
-                        Cancel
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={props.onClose} className="btn-ghost">
+                            Cancel
+                        </button>
+                        <button onClick={createOrUpdateRole} className="btn-primary">
+                            {creatingRole ? 'Create' : 'Update'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </Modal>
-
     )
 }
